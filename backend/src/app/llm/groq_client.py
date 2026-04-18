@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any
 
-from openai import OpenAI
+from openai import APIError, OpenAI
 
 from app.config import get_settings
 from app.schemas.common import BucketType, SignalState
@@ -27,7 +27,14 @@ class GroqClient:
     async def rank_and_draft(self, prompt: str, payload: dict[str, Any]) -> RankAndDraftOutput:
         if not self._enabled:
             return self._fallback_rank_and_draft()
-        raw = self._chat_json(prompt, payload)
+        try:
+            raw = self._chat_json(prompt, payload)
+        except APIError as exc:
+            logger.warning("rank_and_draft API error; using fallback: %s", exc)
+            return self._fallback_rank_and_draft()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("rank_and_draft transport error; using fallback: %s", exc)
+            return self._fallback_rank_and_draft()
         parsed = try_parse_with_repair(raw, RankAndDraftOutput)
         if parsed:
             return parsed  # type: ignore[return-value]
@@ -42,7 +49,16 @@ class GroqClient:
                 confidence=0.35,
                 evidence_summary=[],
             )
-        raw = self._chat_json(prompt, payload)
+        try:
+            raw = self._chat_json(prompt, payload)
+        except (APIError, Exception) as exc:  # noqa: BLE001
+            logger.warning("verify_factcheck API error; using fallback: %s", exc)
+            return VerifyFactCheckOutput(
+                verdict="uncertain",
+                revised_card_text="Evidence is incomplete. Confirm before stating this as fact.",
+                confidence=0.35,
+                evidence_summary=[],
+            )
         parsed = try_parse_with_repair(raw, VerifyFactCheckOutput)
         if parsed:
             return parsed  # type: ignore[return-value]
@@ -63,7 +79,16 @@ class GroqClient:
                 uncertainties=["LLM key not configured; using fallback expansion."],
                 evidence_used=[],
             )
-        raw = self._chat_json(prompt, payload)
+        try:
+            raw = self._chat_json(prompt, payload)
+        except (APIError, Exception) as exc:  # noqa: BLE001
+            logger.warning("expand API error; using fallback: %s", exc)
+            return ExpandOutput(
+                expanded_text="Use the suggestion carefully and confirm details before speaking.",
+                supporting_points=[],
+                uncertainties=["LLM request failed; using fallback expansion."],
+                evidence_used=[],
+            )
         parsed = try_parse_with_repair(raw, ExpandOutput)
         if parsed:
             return parsed  # type: ignore[return-value]

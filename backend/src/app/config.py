@@ -13,7 +13,7 @@ class AppSettings(BaseSettings):
 
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
     groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
-    groq_model: str = Field(default="gpt-oss-120b", alias="GROQ_MODEL")
+    groq_model: str = Field(default="openai/gpt-oss-120b", alias="GROQ_MODEL")
     transcription_model: str = Field(default="whisper-large-v3", alias="TRANSCRIPTION_MODEL")
 
     request_timeout_seconds: int = Field(default=25, alias="REQUEST_TIMEOUT_SECONDS")

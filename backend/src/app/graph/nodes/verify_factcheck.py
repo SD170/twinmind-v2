@@ -24,6 +24,10 @@ async def verify_factcheck_node(state: WorkflowState) -> WorkflowState:
         "",
     )
     evidence = evidence_cache.get(req.session_id)
+    for src in req.source_policy.approved_fact_sources:
+        snippet = f"{src.title}: {src.content}".strip()
+        if snippet:
+            evidence.append(snippet)
     retrieval_ms = 0
     if req.source_policy.enable_conditional_web:
         retr_start = time.perf_counter()
@@ -36,6 +40,7 @@ async def verify_factcheck_node(state: WorkflowState) -> WorkflowState:
         "claim": claim_text,
         "card": claim_text,
         "approved_sources": req.source_policy.approved_sources,
+        "approved_fact_sources": [s.model_dump() for s in req.source_policy.approved_fact_sources],
         "evidence": evidence,
     }
     verify_out = await groq_client.verify_factcheck(VERIFY_FACTCHECK_PROMPT, payload)

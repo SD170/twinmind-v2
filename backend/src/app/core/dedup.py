@@ -14,6 +14,7 @@ def compute_batch_key(
         "settings_version": settings.version,
         "source_policy_version": source_policy_version,
         "force_refresh": req.force_refresh,
+        "source_policy": req.source_policy.model_dump(),
     }
     raw = str(payload).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()[:20]

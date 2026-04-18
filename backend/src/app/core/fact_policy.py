@@ -10,7 +10,8 @@ def should_verify_factcheck(
         return False
     if rank_output.bucket_scores.get(BucketType.fact_check, 0.0) < threshold:
         return False
-    if not source_policy.enable_conditional_web and not source_policy.approved_sources:
+    has_evidence = bool(source_policy.approved_fact_sources) or bool(source_policy.approved_sources)
+    if not source_policy.enable_conditional_web and not has_evidence:
         return False
     return True
 

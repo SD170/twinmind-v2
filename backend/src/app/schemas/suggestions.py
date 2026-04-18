@@ -4,9 +4,20 @@ from pydantic import BaseModel, Field, model_validator
 from app.schemas.common import BucketType, SignalState, SuggestionCard, TimingMetrics, TranscriptTurn
 
 
+class ApprovedFactSource(BaseModel):
+    """Embedded evidence for fact-check (doc: self-contained sessions without network)."""
+
+    source_id: str = ""
+    type: str = Field(default="approved_cached_note", max_length=120)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(min_length=1, max_length=8000)
+    uri: str = Field(default="", max_length=500)
+
+
 class SourcePolicy(BaseModel):
     enable_conditional_web: bool = True
     approved_sources: list[str] = Field(default_factory=list)
+    approved_fact_sources: list[ApprovedFactSource] = Field(default_factory=list)
 
 
 class RefreshSuggestionsRequest(BaseModel):
