@@ -3,8 +3,10 @@ import {
   exportSession,
   expandSuggestion,
   getHealth,
+  getRuntimeSettingsDefaults,
   getRuntimeSettings,
   refreshSuggestions,
+  resetRuntimeSettings,
   sendChatMessage,
   transcribeAudio,
   updateRuntimeApiKey,
@@ -226,6 +228,10 @@ function App() {
   const refreshQueueRef = useRef<Promise<void>>(Promise.resolve())
   const autoRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const transcriptListRef = useRef<HTMLDivElement>(null)
+  const settingsBaselineRef = useRef<RuntimeSettings>(DEFAULT_RUNTIME_SETTINGS)
+  const settingsDefaultsRef = useRef<RuntimeSettings>(DEFAULT_RUNTIME_SETTINGS)
+  const apiKeyBaselineRef = useRef('')
+  const rememberApiKeyBaselineRef = useRef(true)
 
   const mergedTurns = useMemo(
     () => [...userTurns].sort((a, b) => a.start_ms - b.start_ms),
@@ -256,10 +262,17 @@ function App() {
       }
 
       try {
-        const settingsEnvelope = await getRuntimeSettings()
+        const [settingsEnvelope, defaults] = await Promise.all([
+          getRuntimeSettings(),
+          getRuntimeSettingsDefaults(),
+        ])
         if (cancelled) return
         setRuntimeSettings(settingsEnvelope.settings)
         setSettingsDraft(settingsEnvelope.settings)
+        settingsBaselineRef.current = settingsEnvelope.settings
+        settingsDefaultsRef.current = defaults
+        apiKeyBaselineRef.current = storedApiKey
+        rememberApiKeyBaselineRef.current = Boolean(storedApiKey)
 
         // Always sync local key to backend runtime on app start.
         // Empty local key clears runtime key so backend falls back to env key.
@@ -543,6 +556,9 @@ function App() {
         window.localStorage.removeItem(API_KEY_STORAGE_KEY)
       }
       setRuntimeSettings(settingsDraft)
+      settingsBaselineRef.current = settingsDraft
+      apiKeyBaselineRef.current = trimmedApiKey
+      rememberApiKeyBaselineRef.current = rememberApiKey
       setApiKeySource(trimmedApiKey ? 'runtime' : 'env')
       setSettingsSuccess('Settings saved')
     } catch (error) {
@@ -552,6 +568,43 @@ function App() {
       setIsSavingSettings(false)
     }
   }, [apiKeyDraft, rememberApiKey, settingsDraft])
+
+  const handleResetSettingField = useCallback(
+    function <K extends keyof RuntimeSettings>(key: K) {
+      const defaultValue = settingsDefaultsRef.current[key]
+      setSettingsDraft((prev) => ({ ...prev, [key]: defaultValue }))
+    },
+    []
+  )
+
+  const handleResetAllSettings = useCallback(async () => {
+    setSettingsError(null)
+    setSettingsSuccess(null)
+    setIsSavingSettings(true)
+    try {
+      const resetEnvelope = await resetRuntimeSettings()
+      setRuntimeSettings(resetEnvelope.settings)
+      setSettingsDraft(resetEnvelope.settings)
+      settingsBaselineRef.current = resetEnvelope.settings
+
+      const defaults = await getRuntimeSettingsDefaults()
+      settingsDefaultsRef.current = defaults
+
+      await updateRuntimeApiKey('')
+      window.localStorage.removeItem(API_KEY_STORAGE_KEY)
+      setApiKeyDraft('')
+      setRememberApiKey(false)
+      apiKeyBaselineRef.current = ''
+      rememberApiKeyBaselineRef.current = false
+      setApiKeySource('env')
+      setSettingsSuccess('Reset to default values')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reset settings'
+      setSettingsError(message)
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }, [])
 
   const appendChatMessage = useCallback((entry: Omit<ChatEntry, 'id' | 'at'>) => {
     setChatMessages((prev) => [...prev, { id: makeId(), at: Date.now(), ...entry }])
@@ -1100,7 +1153,7 @@ function App() {
       </button>
       {settingsModalOpen && (
         <div className="fixed inset-0 z-30 bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/15 bg-surface-container-lowest p-5 sm:p-6 space-y-4">
+          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-2xl border border-white/15 bg-surface-container-lowest p-4 sm:p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-on-surface">Runtime Settings</h3>
               <button
@@ -1115,9 +1168,18 @@ function App() {
               API key is stored in browser localStorage (optional) and sent to backend runtime memory. It is not persisted
               server-side across backend restarts.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-on-surface/70">Groq API key</span>
+                <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                  <span>Groq API key</span>
+                  <button
+                    type="button"
+                    onClick={() => setApiKeyDraft('')}
+                    className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </span>
                 <input
                   type="password"
                   value={apiKeyDraft}
@@ -1137,10 +1199,26 @@ function App() {
                 onChange={(e) => setRememberApiKey(e.target.checked)}
               />
               Remember API key in this browser
+              <button
+                type="button"
+                onClick={() => setRememberApiKey(false)}
+                className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors ml-1"
+              >
+                Reset
+              </button>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-on-surface/70">Live context window turns</span>
+                <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                  <span>Live context window turns</span>
+                  <button
+                    type="button"
+                    onClick={() => handleResetSettingField('context_window_turns')}
+                    className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </span>
                 <input
                   type="number"
                   min={1}
@@ -1156,7 +1234,16 @@ function App() {
                 </span>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-xs text-on-surface/70">Expand context window turns</span>
+                <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                  <span>Expand context window turns</span>
+                  <button
+                    type="button"
+                    onClick={() => handleResetSettingField('expand_context_window_turns')}
+                    className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </span>
                 <input
                   type="number"
                   min={1}
@@ -1175,7 +1262,16 @@ function App() {
                 </span>
               </label>
               <label className="flex flex-col gap-1 sm:col-span-2">
-                <span className="text-xs text-on-surface/70">Fact-check threshold (0-1)</span>
+                <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                  <span>Fact-check threshold (0-1)</span>
+                  <button
+                    type="button"
+                    onClick={() => handleResetSettingField('fact_check_score_threshold')}
+                    className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </span>
                 <input
                   type="number"
                   min={0}
@@ -1197,32 +1293,66 @@ function App() {
               </label>
             </div>
             <label className="flex flex-col gap-1">
-              <span className="text-xs text-on-surface/70">Live suggestions prompt override</span>
+              <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                <span>Live suggestions prompt override</span>
+                <button
+                  type="button"
+                  onClick={() => handleResetSettingField('live_prompt_template')}
+                  className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                >
+                  Reset
+                </button>
+              </span>
               <textarea
                 value={settingsDraft.live_prompt_template}
                 onChange={(e) => setSettingsDraft((prev) => ({ ...prev, live_prompt_template: e.target.value }))}
-                className="min-h-24 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+                className="min-h-16 resize-y w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs text-on-surface/70">Expand prompt override</span>
+              <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                <span>Expand prompt override</span>
+                <button
+                  type="button"
+                  onClick={() => handleResetSettingField('expand_prompt_template')}
+                  className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                >
+                  Reset
+                </button>
+              </span>
               <textarea
                 value={settingsDraft.expand_prompt_template}
                 onChange={(e) => setSettingsDraft((prev) => ({ ...prev, expand_prompt_template: e.target.value }))}
-                className="min-h-20 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+                className="min-h-14 resize-y w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs text-on-surface/70">Chat prompt override</span>
+              <span className="text-xs text-on-surface/70 flex items-center justify-between gap-2">
+                <span>Chat prompt override</span>
+                <button
+                  type="button"
+                  onClick={() => handleResetSettingField('chat_prompt_template')}
+                  className="text-[10px] px-2 py-0.5 rounded border border-white/20 text-on-surface/70 hover:text-[#d8e7ff] hover:border-primary/50 transition-colors"
+                >
+                  Reset
+                </button>
+              </span>
               <textarea
                 value={settingsDraft.chat_prompt_template}
                 onChange={(e) => setSettingsDraft((prev) => ({ ...prev, chat_prompt_template: e.target.value }))}
-                className="min-h-20 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+                className="min-h-14 resize-y w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
               />
             </label>
             {settingsError && <p className="text-sm text-rose-300/90">{settingsError}</p>}
             {settingsSuccess && <p className="text-sm text-emerald-300/90">{settingsSuccess}</p>}
             <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleResetAllSettings}
+                className="text-sm rounded-lg px-3.5 py-2 border border-amber-400/40 text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-300/60 transition-colors"
+              >
+                Reset all
+              </button>
               <button
                 type="button"
                 onClick={() => setSettingsModalOpen(false)}
@@ -1233,7 +1363,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => void handleSaveSettings()}
-                className="ui-btn text-sm rounded-lg px-3.5 py-2"
+                className="text-sm rounded-lg px-3.5 py-2 border border-primary/70 bg-primary/20 text-[#d8e7ff] hover:bg-primary/30 transition-colors"
                 disabled={isSavingSettings}
               >
                 {isSavingSettings ? 'Saving…' : 'Save settings'}

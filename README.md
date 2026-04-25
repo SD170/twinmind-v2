@@ -62,6 +62,27 @@ npm run dev
 If needed:
 - `VITE_API_BASE_URL` defaults to `http://127.0.0.1:8000`
 
+## Docker (Backend)
+
+Build backend image:
+
+```bash
+cd backend
+docker build -t twinmind-backend:latest .
+```
+
+Run backend container:
+
+```bash
+docker run --rm -p 8000:8000 --env-file .env twinmind-backend:latest
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
 ## Runtime Features
 
 - Start/stop microphone and stream transcript chunks

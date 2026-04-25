@@ -23,6 +23,16 @@ def update_settings_endpoint(settings: RuntimeSettings) -> RuntimeSettingsEnvelo
     return runtime_settings_store.update(settings)
 
 
+@router.get("/settings/defaults", response_model=RuntimeSettings)
+def get_settings_defaults_endpoint() -> RuntimeSettings:
+    return runtime_settings_store.defaults()
+
+
+@router.post("/settings/reset", response_model=RuntimeSettingsEnvelope)
+def reset_settings_endpoint() -> RuntimeSettingsEnvelope:
+    return runtime_settings_store.reset()
+
+
 @router.get("/settings/api-key", response_model=RuntimeApiKeyStatus)
 def get_api_key_status() -> RuntimeApiKeyStatus:
     if runtime_api_key_store.has_key():

@@ -111,6 +111,18 @@ export async function updateRuntimeSettings(settings: RuntimeSettings): Promise<
   return parseResponse<RuntimeSettingsEnvelope>(response)
 }
 
+export async function getRuntimeSettingsDefaults(): Promise<RuntimeSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings/defaults`)
+  return parseResponse<RuntimeSettings>(response)
+}
+
+export async function resetRuntimeSettings(): Promise<RuntimeSettingsEnvelope> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings/reset`, {
+    method: 'POST',
+  })
+  return parseResponse<RuntimeSettingsEnvelope>(response)
+}
+
 export async function getRuntimeApiKeyStatus(): Promise<RuntimeApiKeyStatus> {
   const response = await fetch(`${API_BASE_URL}/api/v1/settings/api-key`)
   return parseResponse<RuntimeApiKeyStatus>(response)
