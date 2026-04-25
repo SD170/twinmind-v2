@@ -7,8 +7,9 @@ Live meeting copilot app for the TwinMind assignment:
 
 ## Submission Links
 
-- Deployed app URL: `ADD_YOUR_DEPLOY_URL_HERE`
-- GitHub repository: `ADD_YOUR_GITHUB_REPO_URL_HERE`
+- Deployed app URL: `https://twinmind-v2.vercel.app/`
+- Backend API URL: `https://twinmind-backend.orangesea-eb6514e1.westus2.azurecontainerapps.io/`
+- GitHub repository: `https://github.com/SD170/twinmind-v2`
 
 ## Tech Stack and Why
 
