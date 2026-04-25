@@ -1151,6 +1151,9 @@ function App() {
                   }
                   className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
                 />
+                <span className="text-[11px] text-on-surface/55 leading-snug">
+                  How many latest transcript turns are sent when generating live suggestion cards.
+                </span>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-xs text-on-surface/70">Expand context window turns</span>
@@ -1167,6 +1170,30 @@ function App() {
                   }
                   className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
                 />
+                <span className="text-[11px] text-on-surface/55 leading-snug">
+                  How many latest transcript turns are sent when expanding a clicked suggestion.
+                </span>
+              </label>
+              <label className="flex flex-col gap-1 sm:col-span-2">
+                <span className="text-xs text-on-surface/70">Fact-check threshold (0-1)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={settingsDraft.fact_check_score_threshold}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      fact_check_score_threshold: Number(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
+                />
+                <span className="text-[11px] text-on-surface/55 leading-snug">
+                  Controls when verify/fact-check runs after ranking. Lower = more verification (slower, stricter).
+                  Higher = less verification (faster).
+                </span>
               </label>
             </div>
             <label className="flex flex-col gap-1">
