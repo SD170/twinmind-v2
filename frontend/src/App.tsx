@@ -1092,9 +1092,9 @@ function App() {
           setSettingsError(null)
           setSettingsSuccess(null)
         }}
-        className="fixed right-3 top-1/2 -translate-y-1/2 z-20 h-11 w-11 rounded-full border border-white/25 bg-surface-container-lowest/90 text-on-surface/90 shadow-lg backdrop-blur hover:border-primary/55 hover:text-primary transition-colors"
+        className="fixed right-0 top-1/2 -translate-y-1/2 translate-x-[22%] z-20 h-16 w-14 rounded-l-2xl border-2 border-r-0 border-primary/55 bg-surface-container-lowest/98 text-primary shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_0_1px_rgba(173,198,255,0.35)] backdrop-blur hover:border-primary hover:text-[#d8e7ff] hover:shadow-[0_10px_26px_rgba(0,0,0,0.55),0_0_16px_rgba(173,198,255,0.45)] transition-all flex items-center justify-center"
       >
-        <span className="material-symbols-outlined text-[22px]" aria-hidden>
+        <span className="material-symbols-outlined text-[24px] leading-none drop-shadow-[0_0_8px_rgba(173,198,255,0.45)]" aria-hidden>
           settings
         </span>
       </button>
