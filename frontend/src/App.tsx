@@ -185,6 +185,7 @@ function App() {
   const [userTurns, setUserTurns] = useState<TranscriptTurn[]>([])
   const [manualTranscriptDraft, setManualTranscriptDraft] = useState('')
   const [contextNotesDraft, setContextNotesDraft] = useState('')
+  const [showContextNotes, setShowContextNotes] = useState(false)
 
   const [recording, setRecording] = useState(false)
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
@@ -817,14 +818,26 @@ function App() {
                 <span className="text-[10px] text-on-surface/60 uppercase tracking-wide font-semibold">
                   Context Notes
                 </span>
-                <span className="text-[10px] text-on-surface/45">sent with next refresh</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-on-surface/45">sent with next refresh</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowContextNotes((prev) => !prev)}
+                    className="ui-btn ui-btn-ghost text-[10px] rounded px-2 py-1"
+                    aria-expanded={showContextNotes}
+                  >
+                    {showContextNotes ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </div>
-              <textarea
-                value={contextNotesDraft}
-                onChange={(e) => setContextNotesDraft(e.target.value)}
-                placeholder="Optional context lines (one per line)"
-                className="w-full min-h-16 bg-white/[0.07] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 placeholder:text-on-surface/45 focus:outline-none focus:border-primary/60"
-              />
+              {showContextNotes && (
+                <textarea
+                  value={contextNotesDraft}
+                  onChange={(e) => setContextNotesDraft(e.target.value)}
+                  placeholder="Optional context lines (one per line)"
+                  className="w-full min-h-16 bg-white/[0.07] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 placeholder:text-on-surface/45 focus:outline-none focus:border-primary/60"
+                />
+              )}
             </div>
             {transcriptionError && <p className="text-[11px] text-rose-300/90">{transcriptionError}</p>}
             {mergedTurns.length === 0 && (
