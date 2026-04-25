@@ -199,6 +199,7 @@ function App() {
 
   const [suggestionBatches, setSuggestionBatches] = useState<StoredSuggestionBatch[]>([])
   const [exportStatus, setExportStatus] = useState<'idle' | 'ok' | 'err'>('idle')
+  const [isExporting, setIsExporting] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(SUGGESTION_REFRESH_SECONDS)
@@ -636,6 +637,7 @@ function App() {
   }, [appendChatMessage, chatDraft, isSendingChat, sessionId])
 
   const downloadSessionExport = useCallback(async () => {
+    setIsExporting(true)
     try {
       const out = await exportSession(sessionId, 'json')
       const payloadText =
@@ -659,6 +661,8 @@ function App() {
       setRefreshError(message)
       setExportStatus('err')
       window.setTimeout(() => setExportStatus('idle'), 3000)
+    } finally {
+      setIsExporting(false)
     }
   }, [sessionId])
 
@@ -861,8 +865,9 @@ function App() {
                   onClick={() => void downloadSessionExport()}
                   className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2 h-10"
                   title="Download full session JSON export"
+                  disabled={isExporting}
                 >
-                  {exportStatus === 'ok' ? 'Downloaded' : exportStatus === 'err' ? 'Fail' : 'Export'}
+                  {isExporting ? 'Exporting…' : exportStatus === 'ok' ? 'Downloaded' : exportStatus === 'err' ? 'Fail' : 'Export'}
                 </button>
               </div>
             </div>
