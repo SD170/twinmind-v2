@@ -1,22 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  exportSession,
   expandSuggestion,
   getHealth,
+  getRuntimeSettings,
   refreshSuggestions,
   sendChatMessage,
   transcribeAudio,
+  updateRuntimeApiKey,
+  updateRuntimeSettings,
 } from './api/client'
 import { buildRefreshRequest } from './features/suggestions/buildRefreshRequest'
 import { bucketUi, formatTranscriptTime, labelForBucketKey, relTime } from './features/dashboard/stitchUtils'
-import {
-  buildTrajectoryJson,
-  formatTrajectoryJson,
-  type StoredSuggestionBatch,
-} from './features/trajectory/buildTrajectoryJson'
-import type { SignalState, SuggestionCard, TranscriptTurn } from './types/api'
+import { type StoredSuggestionBatch } from './features/trajectory/buildTrajectoryJson'
+import type { RuntimeSettings, SignalState, SuggestionCard, TranscriptTurn } from './types/api'
 
 const TRANSCRIPTION_SEGMENT_MS = 30_000
 const SUGGESTION_REFRESH_SECONDS = 30
+const API_KEY_STORAGE_KEY = 'twinmind_runtime_groq_api_key'
+
+const DEFAULT_RUNTIME_SETTINGS: RuntimeSettings = {
+  live_prompt: 'rank_and_draft_v1',
+  fact_check_prompt: 'verify_factcheck_v1',
+  expand_prompt: 'expand_v1',
+  chat_prompt: 'chat_v1',
+  live_prompt_template: '',
+  fact_check_prompt_template: '',
+  expand_prompt_template: '',
+  chat_prompt_template: '',
+  context_window_turns: 12,
+  expand_context_window_turns: 24,
+  chat_context_window_turns: 24,
+  chat_history_window_messages: 12,
+  fact_check_score_threshold: 0.65,
+  enable_conditional_web: true,
+}
 
 type ChatRole = 'user' | 'assistant'
 type ChatEntry = {
@@ -44,6 +62,13 @@ function makeId() {
     return crypto.randomUUID()
   }
   return `id-${Date.now()}-${Math.floor(Math.random() * 10000)}`
+}
+
+function formatCountdown(seconds: number): string {
+  const safeSeconds = Math.max(0, seconds)
+  const mins = Math.floor(safeSeconds / 60)
+  const secs = safeSeconds % 60
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
 function signalPillClass(state: SignalState | undefined): string {
@@ -157,6 +182,7 @@ function App() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [userTurns, setUserTurns] = useState<TranscriptTurn[]>([])
   const [manualTranscriptDraft, setManualTranscriptDraft] = useState('')
+  const [contextNotesDraft, setContextNotesDraft] = useState('')
 
   const [recording, setRecording] = useState(false)
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
@@ -172,7 +198,7 @@ function App() {
   const segmentPerfStartRef = useRef<number>(0)
 
   const [suggestionBatches, setSuggestionBatches] = useState<StoredSuggestionBatch[]>([])
-  const [trajectoryCopyStatus, setTrajectoryCopyStatus] = useState<'idle' | 'ok' | 'err'>('idle')
+  const [exportStatus, setExportStatus] = useState<'idle' | 'ok' | 'err'>('idle')
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(SUGGESTION_REFRESH_SECONDS)
@@ -186,9 +212,19 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([])
   const [chatDraft, setChatDraft] = useState('')
   const [isSendingChat, setIsSendingChat] = useState(false)
+  const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettings>(DEFAULT_RUNTIME_SETTINGS)
+  const [settingsDraft, setSettingsDraft] = useState<RuntimeSettings>(DEFAULT_RUNTIME_SETTINGS)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null)
+  const [apiKeyDraft, setApiKeyDraft] = useState('')
+  const [rememberApiKey, setRememberApiKey] = useState(true)
+  const [apiKeySource, setApiKeySource] = useState<'runtime' | 'env' | 'none'>('none')
 
   const refreshQueueRef = useRef<Promise<void>>(Promise.resolve())
   const autoRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const transcriptListRef = useRef<HTMLDivElement>(null)
 
   const mergedTurns = useMemo(
     () => [...userTurns].sort((a, b) => a.start_ms - b.start_ms),
@@ -198,9 +234,48 @@ function App() {
   const latest = suggestionBatches[0]
 
   useEffect(() => {
+    const el = transcriptListRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [mergedTurns.length, isUploadingChunk])
+
+  useEffect(() => {
     getHealth()
       .then(() => setBackendStatus('online'))
       .catch(() => setBackendStatus('offline'))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hydrateRuntimeSettings = async () => {
+      const storedApiKey = window.localStorage.getItem(API_KEY_STORAGE_KEY) ?? ''
+      if (storedApiKey) {
+        setApiKeyDraft(storedApiKey)
+      }
+
+      try {
+        const settingsEnvelope = await getRuntimeSettings()
+        if (cancelled) return
+        setRuntimeSettings(settingsEnvelope.settings)
+        setSettingsDraft(settingsEnvelope.settings)
+
+        // Always sync local key to backend runtime on app start.
+        // Empty local key clears runtime key so backend falls back to env key.
+        const runtimeStatus = await updateRuntimeApiKey(storedApiKey)
+        if (cancelled) return
+        setApiKeySource(runtimeStatus.source)
+      } catch (error) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : 'Failed to load runtime settings'
+        setSettingsError(message)
+      }
+    }
+
+    void hydrateRuntimeSettings()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const enqueueUpload = useCallback(
@@ -369,6 +444,12 @@ function App() {
             sessionId,
             userTurns,
             forceRefresh,
+            contextWindowTurns: runtimeSettings.context_window_turns,
+            enableConditionalWeb: runtimeSettings.enable_conditional_web,
+            approvedSources: contextNotesDraft
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean),
           })
         )
         setSuggestionBatches((prev) => [
@@ -394,7 +475,14 @@ function App() {
         setIsRefreshing(false)
       }
     },
-    [hasTranscript, sessionId, userTurns]
+    [
+      contextNotesDraft,
+      hasTranscript,
+      runtimeSettings.context_window_turns,
+      runtimeSettings.enable_conditional_web,
+      sessionId,
+      userTurns,
+    ]
   )
 
   const queueRefresh = useCallback(
@@ -406,12 +494,11 @@ function App() {
   )
 
   useEffect(() => {
-    if (!recording || !hasTranscript) {
+    if (!recording) {
       if (autoRefreshTimerRef.current !== null) {
         clearInterval(autoRefreshTimerRef.current)
         autoRefreshTimerRef.current = null
       }
-      setAutoRefreshCountdown(SUGGESTION_REFRESH_SECONDS)
       return
     }
 
@@ -421,10 +508,7 @@ function App() {
 
     setAutoRefreshCountdown(SUGGESTION_REFRESH_SECONDS)
     autoRefreshTimerRef.current = setInterval(() => {
-      setAutoRefreshCountdown((prev) => {
-        if (prev <= 1) return SUGGESTION_REFRESH_SECONDS
-        return prev - 1
-      })
+      setAutoRefreshCountdown((prev) => (prev <= 0 ? 0 : prev - 1))
     }, 1000)
 
     return () => {
@@ -433,15 +517,40 @@ function App() {
         autoRefreshTimerRef.current = null
       }
     }
-  }, [hasTranscript, recording])
+  }, [recording])
 
   useEffect(() => {
-    if (!recording || !hasTranscript || transcriptResponseTick === 0) {
+    if (transcriptResponseTick === 0 || !hasTranscript) {
       return
     }
+    // Transcript response is the trigger for suggestions refresh.
     setAutoRefreshCountdown(SUGGESTION_REFRESH_SECONDS)
     void queueRefresh(false)
-  }, [hasTranscript, queueRefresh, recording, transcriptResponseTick])
+  }, [hasTranscript, queueRefresh, transcriptResponseTick])
+
+  const handleSaveSettings = useCallback(async () => {
+    setSettingsError(null)
+    setSettingsSuccess(null)
+    setIsSavingSettings(true)
+    try {
+      const trimmedApiKey = apiKeyDraft.trim()
+      await updateRuntimeSettings(settingsDraft)
+      await updateRuntimeApiKey(trimmedApiKey)
+      if (rememberApiKey) {
+        window.localStorage.setItem(API_KEY_STORAGE_KEY, trimmedApiKey)
+      } else {
+        window.localStorage.removeItem(API_KEY_STORAGE_KEY)
+      }
+      setRuntimeSettings(settingsDraft)
+      setApiKeySource(trimmedApiKey ? 'runtime' : 'env')
+      setSettingsSuccess('Settings saved')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save settings'
+      setSettingsError(message)
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }, [apiKeyDraft, rememberApiKey, settingsDraft])
 
   const appendChatMessage = useCallback((entry: Omit<ChatEntry, 'id' | 'at'>) => {
     setChatMessages((prev) => [...prev, { id: makeId(), at: Date.now(), ...entry }])
@@ -526,22 +635,32 @@ function App() {
     }
   }, [appendChatMessage, chatDraft, isSendingChat, sessionId])
 
-  const copyTrajectoryToClipboard = useCallback(async () => {
-    const payload = buildTrajectoryJson({
-      sessionId,
-      transcriptTurns: userTurns,
-      suggestionBatches,
-    })
-    const text = formatTrajectoryJson(payload)
+  const downloadSessionExport = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(text)
-      setTrajectoryCopyStatus('ok')
-      window.setTimeout(() => setTrajectoryCopyStatus('idle'), 2000)
-    } catch {
-      setTrajectoryCopyStatus('err')
-      window.setTimeout(() => setTrajectoryCopyStatus('idle'), 3000)
+      const out = await exportSession(sessionId, 'json')
+      const payloadText =
+        typeof out.content === 'string' ? out.content : `${JSON.stringify(out.content, null, 2)}\n`
+      const blob = new Blob([payloadText], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, '_')
+      const stamp = out.exported_at.replace(/[:.]/g, '-')
+      const filename = `twinmind-export-${safeSessionId}-${stamp}.json`
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportStatus('ok')
+      window.setTimeout(() => setExportStatus('idle'), 2000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Export failed'
+      setRefreshError(message)
+      setExportStatus('err')
+      window.setTimeout(() => setExportStatus('idle'), 3000)
     }
-  }, [sessionId, suggestionBatches, userTurns])
+  }, [sessionId])
 
   return (
     <main className="h-screen max-h-screen flex flex-col overflow-hidden max-w-full">
@@ -596,7 +715,10 @@ function App() {
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 transcript-glow min-h-0">
+          <div
+            ref={transcriptListRef}
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 transcript-glow min-h-0"
+          >
             {isDevMode && (
               <div className="text-[10px] text-on-surface/55 space-y-1 pb-2 border-b border-white/10">
                 <div className="flex flex-wrap justify-between gap-1">
@@ -633,6 +755,20 @@ function App() {
                 </div>
               </div>
             )}
+            <div className="pb-2 border-b border-white/10 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-on-surface/60 uppercase tracking-wide font-semibold">
+                  Context Notes
+                </span>
+                <span className="text-[10px] text-on-surface/45">sent with next refresh</span>
+              </div>
+              <textarea
+                value={contextNotesDraft}
+                onChange={(e) => setContextNotesDraft(e.target.value)}
+                placeholder="Optional context lines (one per line)"
+                className="w-full min-h-16 bg-white/[0.07] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 placeholder:text-on-surface/45 focus:outline-none focus:border-primary/60"
+              />
+            </div>
             {transcriptionError && <p className="text-[11px] text-rose-300/90">{transcriptionError}</p>}
             {mergedTurns.length === 0 && (
               <p className="text-on-surface/70 text-sm">Start the mic to capture what you say.</p>
@@ -700,12 +836,16 @@ function App() {
                     {lastLatencyMs != null ? `${lastLatencyMs}ms` : '—'}
                   </div>
                 </div>
-                {isDevMode && hasTranscript && (
+                {(recording || hasTranscript) && (
                   <span
-                    className="text-[10px] text-on-surface/55 max-w-[7rem] sm:max-w-none text-right"
-                    title="Suggestions refresh a few seconds after new transcript (while mic is on)"
+                    className="text-[10px] text-on-surface/55 max-w-[10rem] sm:max-w-none text-right"
+                    title="Auto-refresh runs every 30s of active transcript time"
                   >
-                    {recording ? `${autoRefreshCountdown}s` : 'paused'}
+                    {recording
+                      ? hasTranscript
+                        ? `Next API call in ${formatCountdown(autoRefreshCountdown)}`
+                        : `Next API call after transcript (${formatCountdown(autoRefreshCountdown)})`
+                      : `Next API call paused (${formatCountdown(autoRefreshCountdown)})`}
                   </span>
                 )}
                 <button
@@ -716,16 +856,14 @@ function App() {
                 >
                   {isRefreshing ? '…' : 'Refresh'}
                 </button>
-                {isDevMode && (
-                  <button
-                    type="button"
-                    onClick={() => void copyTrajectoryToClipboard()}
-                    className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2 h-10"
-                    title="Copy JSON"
-                  >
-                    {trajectoryCopyStatus === 'ok' ? 'Copied' : trajectoryCopyStatus === 'err' ? 'Fail' : 'Export'}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void downloadSessionExport()}
+                  className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2 h-10"
+                  title="Download full session JSON export"
+                >
+                  {exportStatus === 'ok' ? 'Downloaded' : exportStatus === 'err' ? 'Fail' : 'Export'}
+                </button>
               </div>
             </div>
           </div>
@@ -940,6 +1078,138 @@ function App() {
           </div>
         </section>
       </div>
+      <button
+        type="button"
+        aria-label="Open settings"
+        onClick={() => {
+          setSettingsDraft(runtimeSettings)
+          setSettingsModalOpen(true)
+          setSettingsError(null)
+          setSettingsSuccess(null)
+        }}
+        className="fixed right-3 top-1/2 -translate-y-1/2 z-20 h-11 w-11 rounded-full border border-white/25 bg-surface-container-lowest/90 text-on-surface/90 shadow-lg backdrop-blur hover:border-primary/55 hover:text-primary transition-colors"
+      >
+        <span className="material-symbols-outlined text-[22px]" aria-hidden>
+          settings
+        </span>
+      </button>
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-30 bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/15 bg-surface-container-lowest p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-on-surface">Runtime Settings</h3>
+              <button
+                type="button"
+                onClick={() => setSettingsModalOpen(false)}
+                className="ui-btn ui-btn-ghost text-sm rounded-lg px-3 py-2"
+              >
+                Close
+              </button>
+            </div>
+            <p className="text-xs text-on-surface/70">
+              API key is stored in browser localStorage (optional) and sent to backend runtime memory. It is not persisted
+              server-side across backend restarts.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-on-surface/70">Groq API key</span>
+                <input
+                  type="password"
+                  value={apiKeyDraft}
+                  onChange={(e) => setApiKeyDraft(e.target.value)}
+                  placeholder="gsk_..."
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <div className="text-xs text-on-surface/70 self-end pb-1">
+                Active key source: <span className="font-semibold">{apiKeySource}</span>
+              </div>
+            </div>
+            <label className="inline-flex items-center gap-2 text-xs text-on-surface/80">
+              <input
+                type="checkbox"
+                checked={rememberApiKey}
+                onChange={(e) => setRememberApiKey(e.target.checked)}
+              />
+              Remember API key in this browser
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-on-surface/70">Live context window turns</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={80}
+                  value={settingsDraft.context_window_turns}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, context_window_turns: Number(e.target.value) || 1 }))
+                  }
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-on-surface/70">Expand context window turns</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={settingsDraft.expand_context_window_turns}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      expand_context_window_turns: Number(e.target.value) || 1,
+                    }))
+                  }
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 focus:outline-none focus:border-primary/60"
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-on-surface/70">Live suggestions prompt override</span>
+              <textarea
+                value={settingsDraft.live_prompt_template}
+                onChange={(e) => setSettingsDraft((prev) => ({ ...prev, live_prompt_template: e.target.value }))}
+                className="min-h-24 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-on-surface/70">Expand prompt override</span>
+              <textarea
+                value={settingsDraft.expand_prompt_template}
+                onChange={(e) => setSettingsDraft((prev) => ({ ...prev, expand_prompt_template: e.target.value }))}
+                className="min-h-20 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-on-surface/70">Chat prompt override</span>
+              <textarea
+                value={settingsDraft.chat_prompt_template}
+                onChange={(e) => setSettingsDraft((prev) => ({ ...prev, chat_prompt_template: e.target.value }))}
+                className="min-h-20 w-full bg-white/[0.08] border border-white/20 rounded-lg px-3 py-2 text-xs text-on-surface/95 focus:outline-none focus:border-primary/60 font-mono"
+              />
+            </label>
+            {settingsError && <p className="text-sm text-rose-300/90">{settingsError}</p>}
+            {settingsSuccess && <p className="text-sm text-emerald-300/90">{settingsSuccess}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsModalOpen(false)}
+                className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveSettings()}
+                className="ui-btn text-sm rounded-lg px-3.5 py-2"
+                disabled={isSavingSettings}
+              >
+                {isSavingSettings ? 'Saving…' : 'Save settings'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

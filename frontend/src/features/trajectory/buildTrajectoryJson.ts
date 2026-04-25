@@ -30,6 +30,7 @@ export function buildTrajectoryJson(params: {
   sessionId: string
   transcriptTurns: TranscriptTurn[]
   suggestionBatches: StoredSuggestionBatch[]
+  chatMessages: Array<{ id: string; role: 'user' | 'assistant'; text: string; at: number }>
 }): Record<string, unknown> {
   const transcript = [...params.transcriptTurns]
     .sort((a, b) => a.start_ms - b.start_ms)
@@ -82,11 +83,21 @@ export function buildTrajectoryJson(params: {
       return out
     })
 
+  const chatHistory = [...params.chatMessages]
+    .sort((a, b) => a.at - b.at)
+    .map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.text,
+      at: new Date(m.at).toISOString(),
+    }))
+
   return {
     session_id: params.sessionId,
     exported_at: new Date().toISOString(),
     transcript,
     suggestion_batches: suggestionBatches,
+    chat_history: chatHistory,
   }
 }
 

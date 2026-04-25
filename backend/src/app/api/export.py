@@ -17,7 +17,7 @@ def export_session(req: ExportRequest) -> ExportResponse:
         "session_id": session.session_id,
         "transcript": [t.model_dump() for t in session.transcript],
         "suggestion_batches": [b.model_dump() for b in session.suggestion_batches],
-        "chat_history": session.chat_history,
+        "chat_history": [m.model_dump() for m in session.chat_history],
     }
     if req.format == "json":
         return ExportResponse(session_id=req.session_id, content=payload)
@@ -39,6 +39,6 @@ def export_session(req: ExportRequest) -> ExportResponse:
     text_output.append("")
     text_output.append("ChatHistory:")
     for msg in payload["chat_history"]:
-        text_output.append(f"- {msg['role']}: {msg['content']}")
+        text_output.append(f"- [{msg['at']}] {msg['role']}: {msg['content']}")
 
     return ExportResponse(session_id=req.session_id, content="\n".join(text_output))

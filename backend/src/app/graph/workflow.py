@@ -11,10 +11,15 @@ from app.graph.state import WorkflowState
 def _route_after_rank(state: WorkflowState) -> str:
     req = state["request"]
     rank_output = state["rank_output"]
-    settings = get_settings()
+    runtime_settings = state.get("runtime_settings")
+    threshold = (
+        runtime_settings.fact_check_score_threshold
+        if runtime_settings is not None
+        else get_settings().fact_check_score_threshold
+    )
     return (
         "verify_factcheck"
-        if should_verify_factcheck(rank_output, req.source_policy, settings.fact_check_score_threshold)
+        if should_verify_factcheck(rank_output, req.source_policy, threshold)
         else "finalize"
     )
 

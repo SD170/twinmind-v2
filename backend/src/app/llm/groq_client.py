@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Any
@@ -5,6 +6,7 @@ from typing import Any
 from openai import APIError, OpenAI
 
 from app.config import get_settings
+from app.core.runtime_api_key_store import runtime_api_key_store
 from app.schemas.common import BucketType, SignalState
 from app.schemas.llm import ChatOutput, ExpandOutput, RankAndDraftOutput, VerifyFactCheckOutput
 from app.llm.parser import diagnose_parse_failure, try_parse_with_repair
@@ -16,19 +18,16 @@ class GroqClient:
     def __init__(self) -> None:
         settings = get_settings()
         self.model = settings.groq_model
+        self.base_url = settings.groq_base_url
         self.timeout = settings.request_timeout_seconds
-        self._enabled = bool(settings.groq_api_key)
-        self._client = (
-            OpenAI(api_key=settings.groq_api_key, base_url=settings.groq_base_url)
-            if self._enabled
-            else None
-        )
+        self._default_api_key = settings.groq_api_key.strip()
 
     async def rank_and_draft(self, prompt: str, payload: dict[str, Any]) -> RankAndDraftOutput:
-        if not self._enabled:
+        api_key = self._resolve_api_key()
+        if not api_key:
             return self._fallback_rank_and_draft()
         try:
-            raw = self._chat_json(prompt, payload)
+            raw = await asyncio.to_thread(self._chat_json, prompt, payload, api_key)
         except APIError as exc:
             logger.warning("rank_and_draft API error; using fallback: %s", exc)
             return self._fallback_rank_and_draft()
@@ -45,7 +44,8 @@ class GroqClient:
         return self._fallback_rank_and_draft()
 
     async def verify_factcheck(self, prompt: str, payload: dict[str, Any]) -> VerifyFactCheckOutput:
-        if not self._enabled:
+        api_key = self._resolve_api_key()
+        if not api_key:
             return VerifyFactCheckOutput(
                 verdict="uncertain",
                 revised_card_text=(
@@ -56,7 +56,7 @@ class GroqClient:
                 evidence_summary=[],
             )
         try:
-            raw = self._chat_json(prompt, payload)
+            raw = await asyncio.to_thread(self._chat_json, prompt, payload, api_key)
         except (APIError, Exception) as exc:  # noqa: BLE001
             logger.warning("verify_factcheck API error; using fallback: %s", exc)
             return VerifyFactCheckOutput(
@@ -83,7 +83,8 @@ class GroqClient:
         )
 
     async def expand(self, prompt: str, payload: dict[str, Any]) -> ExpandOutput:
-        if not self._enabled:
+        api_key = self._resolve_api_key()
+        if not api_key:
             text = payload.get("clicked_text", "Suggestion")
             return ExpandOutput(
                 expanded_text=f"{text}. Use this as a cautious next move.",
@@ -92,7 +93,7 @@ class GroqClient:
                 evidence_used=[],
             )
         try:
-            raw = self._chat_json(prompt, payload)
+            raw = await asyncio.to_thread(self._chat_json, prompt, payload, api_key)
         except (APIError, Exception) as exc:  # noqa: BLE001
             logger.warning("expand API error; using fallback: %s", exc)
             return ExpandOutput(
@@ -116,7 +117,8 @@ class GroqClient:
         )
 
     async def chat(self, prompt: str, payload: dict[str, Any]) -> ChatOutput:
-        if not self._enabled:
+        api_key = self._resolve_api_key()
+        if not api_key:
             user_message = str(payload.get("message", ""))
             return ChatOutput(
                 answer=f"{user_message or 'Good question.'} Here is a concise reply you can use right now.",
@@ -125,7 +127,7 @@ class GroqClient:
                 evidence_used=[],
             )
         try:
-            raw = self._chat_json(prompt, payload)
+            raw = await asyncio.to_thread(self._chat_json, prompt, payload, api_key)
         except (APIError, Exception) as exc:  # noqa: BLE001
             logger.warning("chat API error; using fallback: %s", exc)
             return ChatOutput(
@@ -148,9 +150,13 @@ class GroqClient:
             evidence_used=[],
         )
 
-    def _chat_json(self, prompt: str, payload: dict[str, Any]) -> str:
-        assert self._client is not None
-        response = self._client.chat.completions.create(
+    def _resolve_api_key(self) -> str:
+        runtime_key = runtime_api_key_store.get()
+        return runtime_key or self._default_api_key
+
+    def _chat_json(self, prompt: str, payload: dict[str, Any], api_key: str) -> str:
+        client = OpenAI(api_key=api_key, base_url=self.base_url)
+        response = client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": prompt},

@@ -17,7 +17,13 @@ async def rank_and_draft_node(state: WorkflowState) -> WorkflowState:
         "request": req.model_dump(),
         "recent_suggestion_history": history,
     }
-    model_out = await groq_client.rank_and_draft(RANK_AND_DRAFT_PROMPT, payload)
+    runtime_settings = state.get("runtime_settings")
+    prompt = (
+        runtime_settings.live_prompt_template.strip()
+        if runtime_settings and runtime_settings.live_prompt_template.strip()
+        else RANK_AND_DRAFT_PROMPT
+    )
+    model_out = await groq_client.rank_and_draft(prompt, payload)
 
     # Ranking is always derived from bucket_scores so top_three/omitted cannot disagree with scores.
     top3, omitted = top_three(model_out.bucket_scores)

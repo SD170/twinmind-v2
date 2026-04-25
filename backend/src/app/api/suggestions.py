@@ -30,7 +30,9 @@ async def refresh_suggestions(req: RefreshSuggestionsRequest) -> RefreshSuggesti
     cancellation_controller.begin(req.session_id, batch_key)
     session_store.append_transcript(req.session_id, req.recent_user_turns)
 
-    graph_state = await live_suggestions_graph.ainvoke({"request": req, "timings": {}})
+    graph_state = await live_suggestions_graph.ainvoke(
+        {"request": req, "runtime_settings": settings.settings, "timings": {}}
+    )
     if cancellation_controller.is_stale(req.session_id, batch_key):
         raise HTTPException(status_code=409, detail="Stale refresh response discarded.")
 

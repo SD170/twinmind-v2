@@ -4,7 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_env: str = Field(default="dev", alias="APP_ENV")
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
@@ -19,11 +23,8 @@ class AppSettings(BaseSettings):
     request_timeout_seconds: int = Field(default=25, alias="REQUEST_TIMEOUT_SECONDS")
     max_transcript_window: int = Field(default=30, alias="MAX_TRANSCRIPT_WINDOW")
     fact_check_score_threshold: float = Field(default=0.65, alias="FACT_CHECK_SCORE_THRESHOLD")
-    enable_conditional_web_retrieval: bool = Field(
-        default=True, alias="ENABLE_CONDITIONAL_WEB_RETRIEVAL"
-    )
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> AppSettings:
-    return AppSettings()  # type: ignore[call-arg]
+    return AppSettings()

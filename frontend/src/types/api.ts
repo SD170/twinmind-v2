@@ -70,6 +70,41 @@ export type ChatMessageResponse = {
   evidence_used: string[]
 }
 
+export type RuntimeSettings = {
+  live_prompt: string
+  fact_check_prompt: string
+  expand_prompt: string
+  chat_prompt: string
+  live_prompt_template: string
+  fact_check_prompt_template: string
+  expand_prompt_template: string
+  chat_prompt_template: string
+  context_window_turns: number
+  expand_context_window_turns: number
+  chat_context_window_turns: number
+  chat_history_window_messages: number
+  fact_check_score_threshold: number
+  enable_conditional_web: boolean
+}
+
+export type RuntimeSettingsEnvelope = {
+  version: number
+  settings: RuntimeSettings
+}
+
+export type RuntimeApiKeyStatus = {
+  has_api_key: boolean
+  source: 'runtime' | 'env'
+}
+
+export type ExportSessionFormat = 'json' | 'text'
+
+export type ExportSessionResponse = {
+  session_id: string
+  exported_at: string
+  content: Record<string, unknown> | string
+}
+
 export type TranscriptionResponse = {
   session_id: string
   speaker: 'user'

@@ -1,11 +1,19 @@
 from threading import RLock
 
+from app.llm.prompts import CHAT_PROMPT, EXPAND_PROMPT, RANK_AND_DRAFT_PROMPT, VERIFY_FACTCHECK_PROMPT
 from app.schemas.settings import RuntimeSettings, RuntimeSettingsEnvelope
 
 
 class RuntimeSettingsStore:
     def __init__(self) -> None:
-        self._envelope = RuntimeSettingsEnvelope()
+        self._envelope = RuntimeSettingsEnvelope(
+            settings=RuntimeSettings(
+                live_prompt_template=RANK_AND_DRAFT_PROMPT,
+                fact_check_prompt_template=VERIFY_FACTCHECK_PROMPT,
+                expand_prompt_template=EXPAND_PROMPT,
+                chat_prompt_template=CHAT_PROMPT,
+            )
+        )
         self._lock = RLock()
 
     def get(self) -> RuntimeSettingsEnvelope:

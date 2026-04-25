@@ -1,7 +1,10 @@
+import logging
 import re
 import urllib.parse
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class WebSearchClient:
@@ -15,7 +18,8 @@ class WebSearchClient:
             try:
                 response = await client.get(url)
                 response.raise_for_status()
-            except Exception:
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("web search failed for query=%r: %s", query, exc)
                 return []
         html = response.text
         return self._extract_snippets(html, max_results)

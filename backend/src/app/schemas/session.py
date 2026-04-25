@@ -14,11 +14,17 @@ class SuggestionBatchLog(BaseModel):
     timing_ms: int = 0
 
 
+class ChatMessageLog(BaseModel):
+    role: str
+    content: str
+    at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
 class SessionState(BaseModel):
     session_id: str
     transcript: list[TranscriptTurn] = Field(default_factory=list)
     suggestion_batches: list[SuggestionBatchLog] = Field(default_factory=list)
-    chat_history: list[dict[str, str]] = Field(default_factory=list)
+    chat_history: list[ChatMessageLog] = Field(default_factory=list)
     settings_version: int = 1
 
 

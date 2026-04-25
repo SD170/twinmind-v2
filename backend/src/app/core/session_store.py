@@ -1,6 +1,6 @@
 from threading import RLock
 
-from app.schemas.session import SessionState, SuggestionBatchLog
+from app.schemas.session import ChatMessageLog, SessionState, SuggestionBatchLog
 from app.schemas.common import TranscriptTurn
 
 
@@ -28,13 +28,7 @@ class InMemorySessionStore:
     def append_chat(self, session_id: str, role: str, content: str) -> None:
         session = self.get_or_create(session_id)
         with self._lock:
-            session.chat_history.append({"role": role, "content": content})
-
-    def increment_settings_version(self, session_id: str) -> int:
-        session = self.get_or_create(session_id)
-        with self._lock:
-            session.settings_version += 1
-            return session.settings_version
+            session.chat_history.append(ChatMessageLog(role=role, content=content))
 
 
 session_store = InMemorySessionStore()

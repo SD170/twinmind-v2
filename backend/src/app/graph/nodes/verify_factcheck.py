@@ -13,9 +13,14 @@ async def verify_factcheck_node(state: WorkflowState) -> WorkflowState:
     started = time.perf_counter()
     req = state["request"]
     rank_output = state["rank_output"]
-    settings = get_settings()
+    runtime_settings = state.get("runtime_settings")
+    threshold = (
+        runtime_settings.fact_check_score_threshold
+        if runtime_settings is not None
+        else get_settings().fact_check_score_threshold
+    )
     if not should_verify_factcheck(
-        rank_output, req.source_policy, settings.fact_check_score_threshold
+        rank_output, req.source_policy, threshold
     ):
         return {"verify_output": None, "timings": state.get("timings", {})}
 
@@ -43,7 +48,12 @@ async def verify_factcheck_node(state: WorkflowState) -> WorkflowState:
         "approved_fact_sources": [s.model_dump() for s in req.source_policy.approved_fact_sources],
         "evidence": evidence,
     }
-    verify_out = await groq_client.verify_factcheck(VERIFY_FACTCHECK_PROMPT, payload)
+    prompt = (
+        runtime_settings.fact_check_prompt_template.strip()
+        if runtime_settings and runtime_settings.fact_check_prompt_template.strip()
+        else VERIFY_FACTCHECK_PROMPT
+    )
+    verify_out = await groq_client.verify_factcheck(prompt, payload)
 
     total = int((time.perf_counter() - started) * 1000)
     timings = state.get("timings", {})

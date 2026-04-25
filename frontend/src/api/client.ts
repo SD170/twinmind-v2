@@ -1,8 +1,13 @@
 import type {
   ChatMessageResponse,
+  ExportSessionFormat,
+  ExportSessionResponse,
   ExpandSuggestionResponse,
   RefreshSuggestionsRequest,
   RefreshSuggestionsResponse,
+  RuntimeApiKeyStatus,
+  RuntimeSettings,
+  RuntimeSettingsEnvelope,
   SuggestionCard,
   TranscriptionResponse,
 } from '../types/api'
@@ -90,4 +95,47 @@ export async function sendChatMessage(params: {
     }),
   })
   return parseResponse<ChatMessageResponse>(response)
+}
+
+export async function getRuntimeSettings(): Promise<RuntimeSettingsEnvelope> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings`)
+  return parseResponse<RuntimeSettingsEnvelope>(response)
+}
+
+export async function updateRuntimeSettings(settings: RuntimeSettings): Promise<RuntimeSettingsEnvelope> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  return parseResponse<RuntimeSettingsEnvelope>(response)
+}
+
+export async function getRuntimeApiKeyStatus(): Promise<RuntimeApiKeyStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings/api-key`)
+  return parseResponse<RuntimeApiKeyStatus>(response)
+}
+
+export async function updateRuntimeApiKey(apiKey: string): Promise<RuntimeApiKeyStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/settings/api-key`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey }),
+  })
+  return parseResponse<RuntimeApiKeyStatus>(response)
+}
+
+export async function exportSession(
+  sessionId: string,
+  format: ExportSessionFormat = 'json'
+): Promise<ExportSessionResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      format,
+    }),
+  })
+  return parseResponse<ExportSessionResponse>(response)
 }
