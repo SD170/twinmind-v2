@@ -10,7 +10,6 @@ def compute_batch_key(
     payload = {
         "session_id": req.session_id,
         "user_turns": [t.model_dump() for t in req.recent_user_turns],
-        "ambient_turns": [t.model_dump() for t in req.recent_ambient_turns],
         "settings_version": settings.version,
         "source_policy_version": source_policy_version,
         "force_refresh": req.force_refresh,

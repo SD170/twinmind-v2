@@ -15,13 +15,10 @@ class InMemorySessionStore:
                 self._sessions[session_id] = SessionState(session_id=session_id)
             return self._sessions[session_id]
 
-    def append_transcript(
-        self, session_id: str, user_turns: list[TranscriptTurn], ambient_turns: list[TranscriptTurn]
-    ) -> None:
+    def append_transcript(self, session_id: str, turns: list[TranscriptTurn]) -> None:
         session = self.get_or_create(session_id)
         with self._lock:
-            session.transcript.extend(user_turns)
-            session.transcript.extend(ambient_turns)
+            session.transcript.extend(turns)
 
     def append_batch(self, session_id: str, batch: SuggestionBatchLog) -> None:
         session = self.get_or_create(session_id)

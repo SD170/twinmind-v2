@@ -23,14 +23,13 @@ class SourcePolicy(BaseModel):
 class RefreshSuggestionsRequest(BaseModel):
     session_id: str = Field(min_length=1)
     recent_user_turns: list[TranscriptTurn] = Field(default_factory=list)
-    recent_ambient_turns: list[TranscriptTurn] = Field(default_factory=list)
     force_refresh: bool = False
     source_policy: SourcePolicy = Field(default_factory=SourcePolicy)
 
     @model_validator(mode="after")
     def validate_turns_present(self) -> "RefreshSuggestionsRequest":
-        if not self.recent_user_turns and not self.recent_ambient_turns:
-            raise ValueError("At least one transcript turn is required.")
+        if not self.recent_user_turns:
+            raise ValueError("At least one user transcript turn is required.")
         return self
 
 

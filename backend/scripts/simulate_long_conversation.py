@@ -10,7 +10,7 @@ Covers:
   - POST /api/v1/export (json + text)
 
 Agents (asyncio tasks):
-  - user_voice, ambient_voice → coordinator drains into refresh payloads.
+  - user_voice → coordinator drains into refresh payloads.
 
 Usage:
   cd backend && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -37,7 +37,6 @@ import httpx
 class MeetingState:
     session_id: str
     pending_user: list[dict] = field(default_factory=list)
-    pending_ambient: list[dict] = field(default_factory=list)
     turn_seq: int = 0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -60,22 +59,6 @@ def _user_line(i: int) -> str:
         "What's the smallest experiment we can run Friday to validate this?",
     ]
     return topics[i % len(topics)] + f" (beat {i})"
-
-
-def _ambient_line(i: int) -> str:
-    topics = [
-        "Agreed — we should pair SLOs with error budget policy before autoscaling.",
-        "Marketing push is Tuesday; we can stage a canary on Monday night.",
-        "There were multiple Slack incidents in 2024; which month do you mean?",
-        "Rollback is staged; we still need an owner for exception approvals.",
-        "Proxy tier change was about reducing failure blast radius under peak.",
-        "Exec summary should lead with customer impact, then technical mechanism.",
-        "Cache hit rate is healthy; watch hot keys on the new feature flag.",
-        "I'll take the postmortem template if you drive the timeline section.",
-        "Yes — treat routing changes separately from pure capacity exhaustion.",
-        "Friday experiment: shadow traffic 5% with guardrails and automatic abort.",
-    ]
-    return topics[i % len(topics)] + f" [room {i}]"
 
 
 def _assert_refresh(body: dict[str, Any], round_idx: int) -> None:
@@ -135,28 +118,6 @@ async def user_voice(state: MeetingState, stop: asyncio.Event, max_lines: int, p
             )
 
 
-async def ambient_voice(state: MeetingState, stop: asyncio.Event, max_lines: int, pause_s: float) -> None:
-    for i in range(max_lines):
-        if stop.is_set():
-            return
-        await asyncio.sleep(pause_s * random.uniform(0.8, 1.4))
-        if stop.is_set():
-            return
-        t_ms = 30_000 * (i + 1) + 5_000
-        async with state.lock:
-            if stop.is_set():
-                return
-            state.pending_ambient.append(
-                {
-                    "id": state.next_id("a"),
-                    "text": _ambient_line(i),
-                    "start_ms": t_ms,
-                    "end_ms": t_ms + 4500,
-                    "confidence": round(random.uniform(0.55, 0.95), 2),
-                }
-            )
-
-
 def _fact_source_payload() -> list[dict[str, Any]]:
     return [
         {
@@ -193,13 +154,12 @@ async def coordinator(
     while done < target_refreshes:
         await asyncio.sleep(poll_s)
         async with state.lock:
-            if not state.pending_user and not state.pending_ambient:
+            if not state.pending_user:
                 continue
             use_evidence = done % 10 == 3 and done > 0
             payload: dict[str, Any] = {
                 "session_id": state.session_id,
                 "recent_user_turns": list(state.pending_user),
-                "recent_ambient_turns": list(state.pending_ambient),
                 "force_refresh": True,
                 "source_policy": {
                     "enable_conditional_web": False,
@@ -208,7 +168,6 @@ async def coordinator(
                 },
             }
             state.pending_user.clear()
-            state.pending_ambient.clear()
         t0 = time.perf_counter()
         try:
             r = await client.post(f"{base}/api/v1/suggestions/refresh", json=payload, timeout=180.0)
@@ -367,13 +326,12 @@ async def run_sim(base: str, refreshes: int, strict: bool, verbose: bool) -> dic
         t0 = time.perf_counter()
         stats = await asyncio.gather(
             user_voice(state, stop, max_voice_lines, pause_s=0.045),
-            ambient_voice(state, stop, max_voice_lines, pause_s=0.05),
             coordinator(
                 client, base, state, stop, refreshes, poll_s=0.035, strict=strict, verbose=verbose
             ),
         )
         elapsed = time.perf_counter() - t0
-        coord_stats = stats[2]
+        coord_stats = stats[1]
 
     lat = coord_stats.get("latency_ms") or [0]
     lat_sorted = sorted(lat)

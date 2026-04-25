@@ -7,7 +7,7 @@ from openai import APIError, OpenAI
 from app.config import get_settings
 from app.schemas.common import BucketType, SignalState
 from app.schemas.llm import ExpandOutput, RankAndDraftOutput, VerifyFactCheckOutput
-from app.llm.parser import try_parse_with_repair
+from app.llm.parser import diagnose_parse_failure, try_parse_with_repair
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,10 @@ class GroqClient:
         parsed = try_parse_with_repair(raw, RankAndDraftOutput)
         if parsed:
             return parsed  # type: ignore[return-value]
-        logger.warning("rank_and_draft parse failed; using fallback")
+        logger.warning(
+            "rank_and_draft parse failed; using fallback | %s",
+            diagnose_parse_failure(raw, RankAndDraftOutput),
+        )
         return self._fallback_rank_and_draft()
 
     async def verify_factcheck(self, prompt: str, payload: dict[str, Any]) -> VerifyFactCheckOutput:
@@ -92,7 +95,10 @@ class GroqClient:
         parsed = try_parse_with_repair(raw, ExpandOutput)
         if parsed:
             return parsed  # type: ignore[return-value]
-        logger.warning("expand parse failed; using fallback")
+        logger.warning(
+            "expand parse failed; using fallback | %s",
+            diagnose_parse_failure(raw, ExpandOutput),
+        )
         return ExpandOutput(
             expanded_text="Use the suggestion carefully and confirm details before speaking.",
             supporting_points=[],

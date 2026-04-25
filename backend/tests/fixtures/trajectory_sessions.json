@@ -17,7 +17,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -74,14 +73,14 @@
       ]
     },
     {
-      "session_id": "S02_missing_ambient_inferred_reply",
-      "description": "Ambient speech is missing; reply obligation inferred from user turn shape.",
+      "session_id": "S02_inferred_reply_obligation",
+      "description": "Reply obligation inferred from user turn shape (no separate room track).",
       "batches": [
         {
           "batch_id": "b1",
           "timestamp_ms": 60000,
           "request": {
-            "session_id": "S02_missing_ambient_inferred_reply",
+            "session_id": "S02_inferred_reply_obligation",
             "recent_user_turns": [
               {
                 "id": "u1",
@@ -90,7 +89,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -159,7 +157,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -228,7 +225,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -297,7 +293,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -367,7 +362,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -440,7 +434,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -509,7 +502,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -593,7 +585,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -658,7 +649,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -682,7 +672,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -777,7 +766,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -842,7 +830,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -866,7 +853,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -947,7 +933,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -971,7 +956,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -1068,7 +1052,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -1138,7 +1121,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -1210,7 +1192,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,
@@ -1234,7 +1215,6 @@
                 "end_ms": 0
               }
             ],
-            "recent_ambient_turns": [],
             "force_refresh": true,
             "source_policy": {
               "enable_conditional_web": false,

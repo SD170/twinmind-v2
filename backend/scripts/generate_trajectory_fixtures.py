@@ -28,7 +28,6 @@ def batch(
     bid: str,
     ts: int,
     user: list[dict],
-    ambient: list[dict],
     topic: str,
     history: list[dict],
     approved: list[dict],
@@ -40,7 +39,6 @@ def batch(
         "request": {
             "session_id": "__SESSION_ID__",
             "recent_user_turns": user,
-            "recent_ambient_turns": ambient,
             "force_refresh": True,
             "source_policy": {
                 "enable_conditional_web": web,
@@ -74,7 +72,6 @@ def sessions() -> list[dict]:
                         "We can cut retries, but what should we do about API capacity next quarter?",
                     )
                 ],
-                [],
                 "Capacity planning and load growth.",
                 [],
                 [],
@@ -103,8 +100,8 @@ def sessions() -> list[dict]:
 
     # S02
     add(
-        "S02_missing_ambient_inferred_reply",
-        "Ambient speech is missing; reply obligation inferred from user turn shape.",
+        "S02_inferred_reply_obligation",
+        "Reply obligation inferred from user turn shape (no separate room track).",
         [
             batch(
                 "b1",
@@ -115,7 +112,6 @@ def sessions() -> list[dict]:
                         "Right, but if the proxy rollout fails again we need a back-out plan.",
                     )
                 ],
-                [],
                 "Comparing capacity risk with rollout risk.",
                 [],
                 [],
@@ -154,7 +150,6 @@ def sessions() -> list[dict]:
                         "Wait, which incident are we talking about exactly — the January routing issue or the March database one?",
                     )
                 ],
-                [],
                 "Outage comparison with under-specified incident reference.",
                 [],
                 [],
@@ -193,7 +188,6 @@ def sessions() -> list[dict]:
                         "We've talked about retries for ten minutes. I still want to mention blast radius and rollback.",
                     )
                 ],
-                [],
                 "Retries dominate; rollback and blast radius remain unresolved.",
                 [],
                 [],
@@ -232,7 +226,6 @@ def sessions() -> list[dict]:
                         "I joined late — where are we landing on rate limits and rollback?",
                     )
                 ],
-                [],
                 "Earlier discussion converged on tighter rate limits, staged rollout, and explicit rollback drills; unresolved owner for final threshold.",
                 [{"bucket": "talking_point", "text": "Mention blast radius before retry tuning."}],
                 [],
@@ -270,7 +263,6 @@ def sessions() -> list[dict]:
                         "I want to avoid the Slack outage pattern; that was just capacity, right?",
                     )
                 ],
-                [],
                 "User is comparing current API risk to a vendor outage.",
                 [],
                 [
@@ -315,7 +307,6 @@ def sessions() -> list[dict]:
                         "I want to avoid the Slack outage pattern; that was just capacity, right?",
                     )
                 ],
-                [],
                 "User is comparing current API risk to a vendor outage.",
                 [],
                 [],
@@ -354,7 +345,6 @@ def sessions() -> list[dict]:
                         "What was the failure mode when Slack went down last year? I want to avoid that pattern.",
                     )
                 ],
-                [],
                 "User wants lessons from vendor outage; year reference ambiguous.",
                 [],
                 [
@@ -405,7 +395,6 @@ def sessions() -> list[dict]:
                         "Should I mention Alice's diagnosis and customer ACME's outage in the recap?",
                     )
                 ],
-                [],
                 "User is drafting a recap with personal and customer-identifying details.",
                 [],
                 [],
@@ -438,7 +427,6 @@ def sessions() -> list[dict]:
                 "b1",
                 30000,
                 [turn("u1", "What should I say about capacity during launch week?")],
-                [],
                 "Launch-week capacity planning.",
                 [],
                 [],
@@ -447,7 +435,6 @@ def sessions() -> list[dict]:
                 "b2",
                 60000,
                 [turn("u2", "And I also want one point on rollout safety.")],
-                [],
                 "Capacity plus rollout safety.",
                 [
                     {"bucket": "answer", "text": "Say: 'We'll size for peak and validate with load tests.'"},
@@ -493,7 +480,6 @@ def sessions() -> list[dict]:
                 "b1",
                 270000,
                 [turn("u1", "uh we should maybe cache cap city? not sure")],
-                [],
                 "Noisy utterance; likely discussing cache or API capacity.",
                 [],
                 [],
@@ -526,7 +512,6 @@ def sessions() -> list[dict]:
                 "b1",
                 300000,
                 [turn("u1", "If they ask why we changed the proxy tier...")],
-                [],
                 "User is starting to formulate a reply.",
                 [],
                 [],
@@ -540,7 +525,6 @@ def sessions() -> list[dict]:
                         "If they ask why we changed the proxy tier, I want one clean sentence.",
                     )
                 ],
-                [],
                 "User wants concise justification for proxy-tier change.",
                 [],
                 [],
@@ -581,7 +565,6 @@ def sessions() -> list[dict]:
                 "b1",
                 330000,
                 [turn("u1", "What should I say about rate limits?")],
-                [],
                 "User wants a rate-limit framing.",
                 [],
                 [],
@@ -590,7 +573,6 @@ def sessions() -> list[dict]:
                 "b2",
                 334000,
                 [turn("u2", "Actually make that rate limits plus rollback.")],
-                [],
                 "Rate limits plus rollback.",
                 [],
                 [],
@@ -637,7 +619,6 @@ def sessions() -> list[dict]:
                 "b1",
                 360000,
                 [turn("u1", "What should I say if they ask whether we tested rollback?")],
-                [],
                 "Rollback testing answer needed.",
                 [{"bucket": "talking_point", "text": "Mention rollback drills before launch."}],
                 [],
@@ -673,7 +654,6 @@ def sessions() -> list[dict]:
                 "b1",
                 390000,
                 [turn("u1", "Was that Jan 2024 outage just a capacity problem?")],
-                [],
                 "User asks about cause of known incident.",
                 [],
                 [
@@ -712,7 +692,6 @@ def sessions() -> list[dict]:
                 "b1",
                 420000,
                 [turn("u1", "The outage was definitely caused by DNS.")],
-                [],
                 "Bare factual assertion with no approved evidence.",
                 [],
                 [],
@@ -721,7 +700,6 @@ def sessions() -> list[dict]:
                 "b2",
                 450000,
                 [turn("u2", "Another thing is rollback drills.")],
-                [],
                 "Topic addition with no direct question.",
                 [],
                 [],

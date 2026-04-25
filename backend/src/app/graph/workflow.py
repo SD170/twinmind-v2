@@ -2,7 +2,6 @@ from langgraph.graph import END, START, StateGraph
 
 from app.core.fact_policy import should_verify_factcheck
 from app.config import get_settings
-from app.graph.nodes.build_state import build_state_node
 from app.graph.nodes.finalize import finalize_node
 from app.graph.nodes.rank_and_draft import rank_and_draft_node
 from app.graph.nodes.verify_factcheck import verify_factcheck_node
@@ -22,13 +21,11 @@ def _route_after_rank(state: WorkflowState) -> str:
 
 def build_live_suggestions_graph():
     graph = StateGraph(WorkflowState)
-    graph.add_node("build_state", build_state_node)
     graph.add_node("rank_and_draft", rank_and_draft_node)
     graph.add_node("verify_factcheck", verify_factcheck_node)
     graph.add_node("finalize", finalize_node)
 
-    graph.add_edge(START, "build_state")
-    graph.add_edge("build_state", "rank_and_draft")
+    graph.add_edge(START, "rank_and_draft")
     graph.add_conditional_edges("rank_and_draft", _route_after_rank)
     graph.add_edge("verify_factcheck", "finalize")
     graph.add_edge("finalize", END)
