@@ -720,9 +720,9 @@ function App() {
   }, [sessionId])
 
   return (
-    <main className="h-screen max-h-screen flex flex-col overflow-hidden max-w-full">
-      <div className="flex flex-1 min-h-0 min-w-0">
-        <section className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] ui-column-rule-r flex flex-col bg-surface-container-lowest min-w-0 min-h-0">
+    <main className="min-h-screen lg:h-screen lg:max-h-screen flex flex-col overflow-x-hidden max-w-full">
+      <div className="flex flex-1 min-h-0 min-w-0 flex-col lg:flex-row">
+        <section className="w-full lg:w-1/4 lg:max-w-[min(28vw,24rem)] ui-column-rule-r flex flex-col bg-surface-container-lowest min-w-0 min-h-[36vh] lg:min-h-0">
           <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
             <div className="flex items-center justify-between gap-3 min-h-[3rem]">
               <div className="flex items-center gap-2 min-w-0 flex-wrap">
@@ -862,7 +862,7 @@ function App() {
           </div>
         </section>
 
-        <section className="flex-1 flex flex-col bg-background min-w-0 min-h-0">
+        <section className="flex-1 flex flex-col bg-background min-w-0 min-h-[38vh] lg:min-h-0">
           <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
             <div className="flex items-center justify-between gap-3 min-h-[3rem]">
               <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
@@ -1026,7 +1026,7 @@ function App() {
 
         <section
           ref={chatColumnRef}
-          className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] ui-column-rule-l flex flex-col bg-surface-container-lowest min-w-0 min-h-0"
+          className="w-full lg:w-1/4 lg:max-w-[min(28vw,24rem)] ui-column-rule-l flex flex-col bg-surface-container-lowest min-w-0 min-h-[34vh] lg:min-h-0"
         >
           <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
             <div className="flex items-center justify-between gap-3 min-h-[3rem]">
@@ -1145,9 +1145,9 @@ function App() {
           setSettingsError(null)
           setSettingsSuccess(null)
         }}
-        className="fixed right-0 top-1/2 -translate-y-1/2 translate-x-[22%] z-20 h-16 w-14 rounded-l-2xl border-2 border-r-0 border-primary/55 bg-surface-container-lowest/98 text-primary shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_0_1px_rgba(173,198,255,0.35)] backdrop-blur hover:border-primary hover:text-[#d8e7ff] hover:shadow-[0_10px_26px_rgba(0,0,0,0.55),0_0_16px_rgba(173,198,255,0.45)] transition-all flex items-center justify-center"
+        className="fixed bottom-4 right-4 lg:right-0 lg:top-1/2 lg:bottom-auto lg:-translate-y-1/2 lg:translate-x-[22%] z-20 h-12 w-12 lg:h-16 lg:w-14 rounded-xl lg:rounded-l-2xl lg:rounded-r-none border-2 lg:border-r-0 border-primary/55 bg-surface-container-lowest/98 text-primary shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_0_1px_rgba(173,198,255,0.35)] backdrop-blur hover:border-primary hover:text-[#d8e7ff] hover:shadow-[0_10px_26px_rgba(0,0,0,0.55),0_0_16px_rgba(173,198,255,0.45)] transition-all flex items-center justify-center"
       >
-        <span className="material-symbols-outlined text-[24px] leading-none drop-shadow-[0_0_8px_rgba(173,198,255,0.45)]" aria-hidden>
+        <span className="material-symbols-outlined text-[22px] lg:text-[24px] leading-none drop-shadow-[0_0_8px_rgba(173,198,255,0.45)]" aria-hidden>
           settings
         </span>
       </button>
