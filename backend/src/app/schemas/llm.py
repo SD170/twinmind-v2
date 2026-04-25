@@ -31,3 +31,10 @@ class ExpandOutput(BaseModel):
     supporting_points: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     evidence_used: list[str] = Field(default_factory=list)
+
+
+class ChatOutput(BaseModel):
+    answer: str = Field(min_length=1, max_length=3000)
+    supporting_points: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    evidence_used: list[str] = Field(default_factory=list)

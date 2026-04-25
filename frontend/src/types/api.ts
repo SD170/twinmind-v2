@@ -15,6 +15,8 @@ export type SuggestionCard = {
   confidence: number
   evidence: string[]
   verdict?: string | null
+  supporting_points?: string[]
+  uncertainties?: string[]
 }
 
 export type RefreshSuggestionsRequest = {
@@ -49,11 +51,20 @@ export type RefreshSuggestionsResponse = {
     verify_ms: number
     finalize_ms: number
   }
+  metadata?: Record<string, string | number | boolean>
 }
 
 export type ExpandSuggestionResponse = {
   bucket: BucketType
   expanded_text: string
+  supporting_points: string[]
+  uncertainties: string[]
+  evidence_used: string[]
+}
+
+export type ChatMessageResponse = {
+  session_id: string
+  answer: string
   supporting_points: string[]
   uncertainties: string[]
   evidence_used: string[]

@@ -13,6 +13,11 @@ GENERIC_UNCERTAIN_PREFIXES = (
     "insufficient evidence",
     "unable to verify",
     "cannot verify",
+    "no fact to check",
+    "nothing to verify",
+    "there is no fact",
+    "n/a for fact",
+    "insufficient to fact",
 )
 
 

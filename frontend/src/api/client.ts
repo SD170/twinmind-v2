@@ -1,4 +1,5 @@
 import type {
+  ChatMessageResponse,
   ExpandSuggestionResponse,
   RefreshSuggestionsRequest,
   RefreshSuggestionsResponse,
@@ -74,4 +75,19 @@ export async function expandSuggestion(params: {
     }),
   })
   return parseResponse<ExpandSuggestionResponse>(response)
+}
+
+export async function sendChatMessage(params: {
+  sessionId: string
+  message: string
+}): Promise<ChatMessageResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: params.sessionId,
+      message: params.message,
+    }),
+  })
+  return parseResponse<ChatMessageResponse>(response)
 }

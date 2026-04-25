@@ -57,3 +57,16 @@ class ExpandSuggestionResponse(BaseModel):
     supporting_points: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     evidence_used: list[str] = Field(default_factory=list)
+
+
+class ChatMessageRequest(BaseModel):
+    session_id: str = Field(min_length=1)
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class ChatMessageResponse(BaseModel):
+    session_id: str
+    answer: str
+    supporting_points: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    evidence_used: list[str] = Field(default_factory=list)

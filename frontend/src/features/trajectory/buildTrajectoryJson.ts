@@ -1,4 +1,10 @@
-import type { BucketType, SignalState, SuggestionCard, TranscriptTurn } from '../../types/api'
+import type {
+  BucketType,
+  RefreshSuggestionsResponse,
+  SignalState,
+  SuggestionCard,
+  TranscriptTurn,
+} from '../../types/api'
 
 /** Stable bucket order for sorting suggestion cards in exports. */
 const BUCKET_ORDER: BucketType[] = ['answer', 'fact_check', 'talking_point', 'question']
@@ -16,6 +22,8 @@ export type StoredSuggestionBatch = {
   signalState?: SignalState
   scores?: Record<BucketType, number>
   cards: SuggestionCard[]
+  timings?: RefreshSuggestionsResponse['timings']
+  metadata?: Record<string, string | number | boolean>
 }
 
 export function buildTrajectoryJson(params: {
@@ -38,13 +46,18 @@ export function buildTrajectoryJson(params: {
     .map((batch, order) => {
       const suggestions = [...batch.cards]
         .sort((a, b) => bucketRank(a.bucket) - bucketRank(b.bucket))
-        .map((c) => ({
-          bucket: c.bucket,
-          text: c.text,
-          confidence: c.confidence,
-          evidence: c.evidence,
-          verdict: c.verdict ?? null,
-        }))
+        .map((c) => {
+          const s: Record<string, unknown> = {
+            bucket: c.bucket,
+            text: c.text,
+            confidence: c.confidence,
+            evidence: c.evidence,
+            verdict: c.verdict ?? null,
+          }
+          if (c.supporting_points?.length) s.supporting_points = c.supporting_points
+          if (c.uncertainties?.length) s.uncertainties = c.uncertainties
+          return s
+        })
 
       const out: Record<string, unknown> = {
         order,
@@ -59,6 +72,12 @@ export function buildTrajectoryJson(params: {
       }
       if (batch.scores !== undefined) {
         out.scores = batch.scores
+      }
+      if (batch.timings !== undefined) {
+        out.timings = batch.timings
+      }
+      if (batch.metadata !== undefined) {
+        out.metadata = batch.metadata
       }
       return out
     })

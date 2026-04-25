@@ -1,12 +1,143 @@
 <!doctype html>
-<html lang="en">
+<html class="dark" lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <title>AI Copilot — TwinMind</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'tertiary-fixed': '#e1e2eb',
+              'secondary-fixed': '#e9ddff',
+              'on-primary-fixed-variant': '#004493',
+              'on-error-container': '#ffdad6',
+              tertiary: '#c4c6cf',
+              'tertiary-container': '#8e9099',
+              'surface-container-low': '#1b1b1b',
+              background: '#131313',
+              'surface-bright': '#393939',
+              'error-container': '#93000a',
+              'on-surface': '#e2e2e2',
+              'on-secondary-fixed-variant': '#5516be',
+              'surface-container-lowest': '#0e0e0e',
+              'secondary-container': '#571bc1',
+              'tertiary-fixed-dim': '#c4c6cf',
+              'primary-fixed-dim': '#adc6ff',
+              outline: '#8b90a0',
+              'on-secondary-fixed': '#23005c',
+              'on-secondary-container': '#c4abff',
+              'on-primary-fixed': '#001a41',
+              'on-tertiary-fixed-variant': '#44474e',
+              'surface-dim': '#131313',
+              'on-tertiary': '#2e3037',
+              'surface-variant': '#353535',
+              'on-primary': '#002e69',
+              'outline-variant': '#414755',
+              'inverse-primary': '#005bc1',
+              'primary-fixed': '#d8e2ff',
+              'on-background': '#e2e2e2',
+              'secondary-fixed-dim': '#d0bcff',
+              'surface-tint': '#adc6ff',
+              secondary: '#d0bcff',
+              error: '#ffb4ab',
+              'surface-container': '#1f1f1f',
+              'primary-container': '#4b8eff',
+              'on-tertiary-container': '#272a30',
+              'surface-container-highest': '#353535',
+              'on-error': '#690005',
+              'inverse-surface': '#e2e2e2',
+              'on-tertiary-fixed': '#191c22',
+              surface: '#131313',
+              'surface-container-high': '#2a2a2a',
+              'on-surface-variant': '#c1c6d7',
+              'on-secondary': '#3c0091',
+              primary: '#adc6ff',
+              'inverse-on-surface': '#303030',
+              'on-primary-container': '#00285c',
+            },
+            borderRadius: {
+              DEFAULT: '0.125rem',
+              lg: '0.25rem',
+              xl: '0.5rem',
+              full: '0.75rem',
+            },
+            spacing: {
+              xs: '4px',
+              base: '8px',
+              sm: '12px',
+              lg: '48px',
+              gutter: '24px',
+              'container-max': '1200px',
+              md: '24px',
+              xl: '80px',
+            },
+            fontFamily: {
+              'body-md': ['Inter'],
+              h2: ['Inter'],
+              h1: ['Inter'],
+              'body-lg': ['Inter'],
+              'label-caps': ['Inter'],
+              button: ['Inter'],
+              h3: ['Inter'],
+            },
+            fontSize: {
+              'body-md': ['15px', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }],
+              h2: ['32px', { lineHeight: '1.2', letterSpacing: '-0.03em', fontWeight: '600' }],
+              h1: ['48px', { lineHeight: '1.1', letterSpacing: '-0.04em', fontWeight: '700' }],
+              'body-lg': ['18px', { lineHeight: '1.6', letterSpacing: '-0.01em', fontWeight: '400' }],
+              'label-caps': ['12px', { lineHeight: '1', letterSpacing: '0.1em', fontWeight: '600' }],
+              button: ['14px', { lineHeight: '1', letterSpacing: '0.01em', fontWeight: '500' }],
+              h3: ['24px', { lineHeight: '1.3', letterSpacing: '-0.02em', fontWeight: '600' }],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      .glass-card {
+        background: #0b0e14;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+      }
+      .active-gradient {
+        background: linear-gradient(135deg, #007aff 0%, #005bc1 100%);
+      }
+      .transcript-glow {
+        box-shadow: 0 0 20px rgba(173, 198, 255, 0.05);
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+      }
+      .material-symbols-outlined {
+        font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+      }
+    </style>
   </head>
-  <body>
+  <body class="bg-background text-on-surface font-body-md selection:bg-primary/30">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

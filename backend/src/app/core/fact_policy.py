@@ -17,6 +17,5 @@ def should_verify_factcheck(
 
 
 def enforce_uncertain_factcheck_text(text: str) -> str:
-    if "uncertain" in text.lower() or "not enough evidence" in text.lower():
-        return text
-    return f"{text} (uncertain: verify before stating this as fact)"
+    """Keep verify-step uncertains as epistemic nudges; do not append meta disclaimers (see prompts.VERIFY)."""
+    return text.strip()

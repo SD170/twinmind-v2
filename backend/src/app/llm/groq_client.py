@@ -6,7 +6,7 @@ from openai import APIError, OpenAI
 
 from app.config import get_settings
 from app.schemas.common import BucketType, SignalState
-from app.schemas.llm import ExpandOutput, RankAndDraftOutput, VerifyFactCheckOutput
+from app.schemas.llm import ChatOutput, ExpandOutput, RankAndDraftOutput, VerifyFactCheckOutput
 from app.llm.parser import diagnose_parse_failure, try_parse_with_repair
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,10 @@ class GroqClient:
         if not self._enabled:
             return VerifyFactCheckOutput(
                 verdict="uncertain",
-                revised_card_text="Evidence is incomplete. Confirm before stating this as fact.",
+                revised_card_text=(
+                    "Say that point with one concrete anchor (time, number, or scope) so it lands clearly—"
+                    "without adding new claims."
+                ),
                 confidence=0.35,
                 evidence_summary=[],
             )
@@ -58,7 +61,10 @@ class GroqClient:
             logger.warning("verify_factcheck API error; using fallback: %s", exc)
             return VerifyFactCheckOutput(
                 verdict="uncertain",
-                revised_card_text="Evidence is incomplete. Confirm before stating this as fact.",
+                revised_card_text=(
+                    "Say that point with one concrete anchor (time, number, or scope) so it lands clearly—"
+                    "without adding new claims."
+                ),
                 confidence=0.35,
                 evidence_summary=[],
             )
@@ -68,7 +74,10 @@ class GroqClient:
         logger.warning("verify_factcheck parse failed; using fallback")
         return VerifyFactCheckOutput(
             verdict="uncertain",
-            revised_card_text="Evidence is incomplete. Confirm before stating this as fact.",
+            revised_card_text=(
+                "Say that point with one concrete anchor (time, number, or scope) so it lands clearly—"
+                "without adding new claims."
+            ),
             confidence=0.35,
             evidence_summary=[],
         )
@@ -106,6 +115,39 @@ class GroqClient:
             evidence_used=[],
         )
 
+    async def chat(self, prompt: str, payload: dict[str, Any]) -> ChatOutput:
+        if not self._enabled:
+            user_message = str(payload.get("message", ""))
+            return ChatOutput(
+                answer=f"{user_message or 'Good question.'} Here is a concise reply you can use right now.",
+                supporting_points=[],
+                uncertainties=["LLM key not configured; using fallback chat response."],
+                evidence_used=[],
+            )
+        try:
+            raw = self._chat_json(prompt, payload)
+        except (APIError, Exception) as exc:  # noqa: BLE001
+            logger.warning("chat API error; using fallback: %s", exc)
+            return ChatOutput(
+                answer="I can help with that. Use one concrete, specific line and avoid broad claims.",
+                supporting_points=[],
+                uncertainties=["LLM request failed; using fallback chat response."],
+                evidence_used=[],
+            )
+        parsed = try_parse_with_repair(raw, ChatOutput)
+        if parsed:
+            return parsed  # type: ignore[return-value]
+        logger.warning(
+            "chat parse failed; using fallback | %s",
+            diagnose_parse_failure(raw, ChatOutput),
+        )
+        return ChatOutput(
+            answer="Give one specific, grounded response and keep it short.",
+            supporting_points=[],
+            uncertainties=["Parser fallback used due to malformed chat output."],
+            evidence_used=[],
+        )
+
     def _chat_json(self, prompt: str, payload: dict[str, Any]) -> str:
         assert self._client is not None
         response = self._client.chat.completions.create(
@@ -131,7 +173,10 @@ class GroqClient:
             {"bucket": "answer", "text": "Respond directly with one concrete next step.", "confidence": 0.52},
             {
                 "bucket": "fact_check",
-                "text": "A claim may need verification before stating it confidently.",
+                "text": (
+                    "Tighten how you state the key point—name one concrete anchor (time, number, or scope) "
+                    "so listeners know exactly what you mean."
+                ),
                 "confidence": 0.35,
             },
             {"bucket": "talking_point", "text": "Highlight the most impactful unresolved tradeoff.", "confidence": 0.68},
