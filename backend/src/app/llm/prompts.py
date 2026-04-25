@@ -98,6 +98,8 @@ Scoring stability (across refreshes in the same session):
 - If the user is still in the same kind of act (e.g. ongoing narration of the same story), keep relative priorities stable; only nudge scores modestly for repetition (via recent_suggestion_history).
 
 Output requirements (JSON only; no markdown, no commentary):
+- **No coaching prefixes on `text`:** Do not start any card `text` with "Consider:", "Maybe:", "Note:", "Suggestion:", or similar meta — output only the line itself (speakable, askable, or checkable). When `signal_state` is weak, keep wording cautious inside the line, not in a prefix.
+- **Distinct previews (mandatory for UI):** The app shows the three highest-scoring cards in one row. Each of those three `text` values must be **obviously different** in wording and form: do **not** use the same opening words, the same first clause, or the same template across any two of the top three. Answer / question / fact_check / talking_point should look like different *kinds* of help (a speakable line vs a check vs a point vs a question), not four variants of one sentence. Each `text` must stand alone as a useful on-card preview.
 - bucket_scores: object with exactly keys answer, fact_check, talking_point, question; each a float 0.0-1.0 (this object is authoritative for which bucket is omitted: lowest score is omitted in downstream logic)
 - cards: array of EXACTLY 4 objects, one per bucket, each:
   {"bucket":"<bucket>","text":"<max 240 chars>","confidence":<0-1 float>,"rationale":"<short string, may be empty>"}
@@ -138,6 +140,7 @@ Stay grounded in transcript and evidence.
 
 Return JSON with keys:
 expanded_text, supporting_points, uncertainties, evidence_used.
+**evidence_used** must be a JSON array of short strings; use [] when there is no cited material (never the string \"None\").
 """
 
 CHAT_PROMPT = """You are the right-panel assistant in a live meeting copilot.
@@ -147,4 +150,5 @@ If context is thin, answer cautiously and ask one clarifying point in uncertaint
 
 Return JSON with keys:
 answer, supporting_points, uncertainties, evidence_used.
+**evidence_used** must be a JSON array of short strings; use [] when none (never the string \"None\").
 """

@@ -42,26 +42,26 @@ const BUCKET_UI: Record<
 > = {
   answer: {
     label: 'Answer',
-    tagClass: 'bg-primary/10 text-primary',
-    borderClass: 'hover:border-primary/50',
+    tagClass: 'bg-primary/20 text-primary border border-primary/25',
+    borderClass: 'border border-primary/20 hover:border-primary/55',
     icon: 'open_in_new',
   },
   fact_check: {
     label: 'Fact-Check',
-    tagClass: 'bg-orange-500/10 text-orange-500',
-    borderClass: 'hover:border-orange-500/30 border-l-2 border-l-orange-500/50',
+    tagClass: 'bg-orange-500/20 text-orange-300 border border-orange-500/30',
+    borderClass: 'border border-orange-500/30 border-l-[3px] border-l-orange-500 hover:border-orange-400/50',
     icon: 'bolt',
   },
   question: {
     label: 'Question',
-    tagClass: 'bg-purple-500/10 text-purple-500',
-    borderClass: 'hover:border-purple-500/30',
+    tagClass: 'bg-purple-500/20 text-purple-200 border border-purple-500/30',
+    borderClass: 'border border-purple-500/30 hover:border-purple-400/50',
     icon: 'help',
   },
   talking_point: {
     label: 'Talking Point',
-    tagClass: 'bg-sky-500/10 text-sky-400',
-    borderClass: 'hover:border-sky-500/30',
+    tagClass: 'bg-sky-500/20 text-sky-300 border border-sky-500/35',
+    borderClass: 'border border-sky-500/35 hover:border-sky-400/55',
     icon: 'lightbulb',
   },
 }

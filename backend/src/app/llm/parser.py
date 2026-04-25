@@ -1,9 +1,37 @@
 import json
+from typing import Any
+
 from pydantic import BaseModel, ValidationError
+
+_LIST_KEYS = frozenset({"evidence_used", "supporting_points", "uncertainties", "evidence_summary"})
+
+
+def _coerce_str_list(val: Any) -> list[str]:
+    """LLMs often emit \"None\" / null-ish strings for list fields; normalize before validation."""
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [str(x).strip() for x in val if x is not None and str(x).strip()]
+    if isinstance(val, str):
+        s = val.strip()
+        if s.lower() in ("", "none", "null", "n/a", "[]"):
+            return []
+        return [s]
+    return []
+
+
+def _normalize_llm_parsed_dict(obj: dict[str, Any]) -> dict[str, Any]:
+    out = dict(obj)
+    for key in _LIST_KEYS:
+        if key in out:
+            out[key] = _coerce_str_list(out[key])
+    return out
 
 
 def parse_or_raise(raw_text: str, schema: type[BaseModel]) -> BaseModel:
     obj = json.loads(raw_text)
+    if isinstance(obj, dict):
+        obj = _normalize_llm_parsed_dict(obj)
     return schema.model_validate(obj)
 
 
@@ -38,6 +66,9 @@ def diagnose_parse_failure(raw_text: str, schema: type[BaseModel]) -> str:
     except json.JSONDecodeError as exc:
         parts.append(f"json_error={exc!s}")
         return " | ".join(parts)
+
+    if isinstance(obj, dict):
+        obj = _normalize_llm_parsed_dict(obj)
 
     try:
         schema.model_validate(obj)

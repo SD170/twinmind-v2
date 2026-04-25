@@ -7,13 +7,7 @@ import {
   transcribeAudio,
 } from './api/client'
 import { buildRefreshRequest } from './features/suggestions/buildRefreshRequest'
-import {
-  bucketUi,
-  cardHeadline,
-  formatTranscriptTime,
-  labelForBucketKey,
-  relTime,
-} from './features/dashboard/stitchUtils'
+import { bucketUi, formatTranscriptTime, labelForBucketKey, relTime } from './features/dashboard/stitchUtils'
 import {
   buildTrajectoryJson,
   formatTrajectoryJson,
@@ -53,9 +47,9 @@ function makeId() {
 }
 
 function signalPillClass(state: SignalState | undefined): string {
-  if (state === 'urgent') return 'text-red-300 border-red-500/40 bg-red-500/10'
-  if (state === 'weak') return 'text-white/40 border-white/10 bg-white/5'
-  return 'text-primary border-primary/30 bg-primary/10'
+  if (state === 'urgent') return 'text-red-200 border border-red-500/50 bg-red-500/15'
+  if (state === 'weak') return 'text-slate-200/90 border border-slate-500/40 bg-slate-500/15'
+  return 'text-primary border border-primary/45 bg-primary/15'
 }
 
 function verdictPill(verdict: string): string {
@@ -68,16 +62,17 @@ type SuggestionGridProps = {
   cards: SuggestionCard[]
   batchId: string
   opacity: number
-  expandingKey: string | null
-  onExpand: (batchId: string, card: SuggestionCard, index: number) => void
+  /** Which card (batchId-index) is opening detail in chat, if any. */
+  detailLoadingKey: string | null
+  onOpenInChat: (batchId: string, card: SuggestionCard, index: number) => void
 }
 
 function SuggestionGrid({
   cards,
   batchId,
   opacity,
-  expandingKey,
-  onExpand,
+  detailLoadingKey,
+  onOpenInChat,
 }: SuggestionGridProps) {
   return (
     <div
@@ -86,72 +81,62 @@ function SuggestionGrid({
     >
       {cards.map((card, index) => {
         const ui = bucketUi(card.bucket)
-        const { title, body } = cardHeadline(card.text)
-        const expandKey = `${batchId}-${index}`
+        const loadKey = `${batchId}-${index}`
+        const busy = detailLoadingKey === loadKey
         return (
           <div
-            key={expandKey}
-            className={`glass-card p-sm rounded-xl ${ui.borderClass} group flex flex-col ${
-              card.evidence.length || (card.supporting_points?.length ?? 0) > 0 ? 'min-h-[8rem]' : ''
-            }`}
+            key={loadKey}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenInChat(batchId, card, index)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpenInChat(batchId, card, index)
+              }
+            }}
+            className={`glass-card p-sm rounded-xl ${ui.borderClass} group flex flex-col min-h-0 min-w-0 text-left
+              cursor-pointer select-none
+              transition-[box-shadow,ring] duration-200
+              hover:ring-2 hover:ring-primary/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/50 focus-visible:outline-offset-2
+              ${busy ? 'ring-2 ring-primary/50 opacity-90 pointer-events-none' : ''}`}
           >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex flex-col gap-1 max-w-[78%]">
-                <div className="flex flex-wrap gap-1">
+            <div className="flex justify-between items-start gap-1 mb-2">
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span
-                    className={`${ui.tagClass} text-[10px] font-bold px-2 py-0.5 rounded-full uppercase leading-tight`}
+                    className={`shrink-0 ${ui.tagClass} text-[10px] font-bold px-2 py-0.5 rounded-full uppercase leading-tight`}
                   >
                     {ui.label}
                   </span>
                   {card.confidence > 0 && (
-                    <span className="text-[10px] text-white/30 self-center">
-                      {Math.round(card.confidence * 100)}% conf
+                    <span className="text-[10px] text-on-surface/60 tabular-nums" title="Model score for this card">
+                      {Math.round(card.confidence * 100)}%
+                    </span>
+                  )}
+                  {card.verdict && (
+                    <span className={`text-[10px] font-semibold ${verdictPill(card.verdict)}`}>
+                      {card.verdict}
                     </span>
                   )}
                 </div>
-                {card.verdict && (
-                  <span className={`text-[10px] font-semibold ${verdictPill(card.verdict)}`}>
-                    {card.verdict}
-                  </span>
+                <p className="text-sm text-on-surface/95 font-medium leading-relaxed break-words whitespace-pre-wrap max-h-[min(42vh,22rem)] overflow-y-auto pr-0.5">
+                  {card.text}
+                </p>
+                {card.evidence.length > 0 && (
+                  <p className="text-[10px] text-on-surface/60 mt-1.5 break-words border-t border-white/10 pt-1.5">
+                    {card.evidence[0]}
+                  </p>
                 )}
               </div>
               <span
-                className={`material-symbols-outlined text-white/20 text-sm group-hover:text-primary transition-colors ${
-                  card.bucket === 'fact_check' ? 'group-hover:text-orange-400' : ''
+                className={`material-symbols-outlined text-on-surface/45 text-lg shrink-0 ${
+                  card.bucket === 'fact_check' ? 'text-orange-400/70' : ''
                 }`}
                 aria-hidden
               >
-                {ui.icon}
+                {busy ? 'hourglass_empty' : 'chat'}
               </span>
-            </div>
-            <h4 className="text-sm font-bold text-white mb-1 leading-snug line-clamp-2">{title}</h4>
-            {body && <p className="text-xs text-on-surface/60 line-clamp-2 flex-1">{body}</p>}
-            {card.supporting_points && card.supporting_points.length > 0 && (
-              <ul className="text-[10px] text-on-surface/50 list-disc pl-3 mt-2 space-y-0.5">
-                {card.supporting_points.slice(0, 3).map((line: string) => (
-                  <li key={line.slice(0, 40)}>{line}</li>
-                ))}
-              </ul>
-            )}
-            {card.uncertainties && card.uncertainties.length > 0 && (
-              <ul className="text-[10px] text-amber-200/50 list-disc pl-3 mt-1 space-y-0.5">
-                {card.uncertainties.slice(0, 2).map((line: string) => (
-                  <li key={line.slice(0, 40)}>{line}</li>
-                ))}
-              </ul>
-            )}
-            {card.evidence.length > 0 && (card.supporting_points?.length ?? 0) === 0 && (
-              <p className="text-[10px] text-on-surface/40 mt-2 line-clamp-2">{card.evidence[0]}</p>
-            )}
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => onExpand(batchId, card, index)}
-                className="text-xs px-2 py-1 rounded-lg border border-white/10 text-on-surface/80 hover:border-primary/40 hover:text-primary"
-                disabled={expandingKey === expandKey}
-              >
-                {expandingKey === expandKey ? '…' : 'Expand'}
-              </button>
             </div>
           </div>
         )
@@ -193,7 +178,10 @@ function App() {
   const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(SUGGESTION_REFRESH_SECONDS)
   const [batchCount, setBatchCount] = useState(0)
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null)
-  const [expandingKey, setExpandingKey] = useState<string | null>(null)
+  const [suggestionDetailKey, setSuggestionDetailKey] = useState<string | null>(null)
+  const suggestionDetailInFlight = useRef(false)
+  const chatThreadRef = useRef<HTMLDivElement>(null)
+  const chatColumnRef = useRef<HTMLElement>(null)
   const [transcriptResponseTick, setTranscriptResponseTick] = useState(0)
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([])
   const [chatDraft, setChatDraft] = useState('')
@@ -456,20 +444,36 @@ function App() {
   }, [hasTranscript, queueRefresh, recording, transcriptResponseTick])
 
   const appendChatMessage = useCallback((entry: Omit<ChatEntry, 'id' | 'at'>) => {
-    setChatMessages((prev) => [{ id: makeId(), at: Date.now(), ...entry }, ...prev])
+    setChatMessages((prev) => [...prev, { id: makeId(), at: Date.now(), ...entry }])
   }, [])
 
-  const handleExpand = useCallback(
+  useEffect(() => {
+    const el = chatThreadRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [chatMessages, isSendingChat, suggestionDetailKey])
+
+  const handleOpenSuggestionInChat = useCallback(
     async (batchId: string, card: SuggestionCard, index: number) => {
+      if (suggestionDetailInFlight.current) {
+        return
+      }
       const key = `${batchId}-${index}`
-      setExpandingKey(key)
       setRefreshError(null)
+      suggestionDetailInFlight.current = true
+      setSuggestionDetailKey(key)
+
+      /** Assignment: add suggestion to chat, then long-form answer via expand (full transcript in backend). */
+      appendChatMessage({ role: 'user', text: card.text })
+      queueMicrotask(() => {
+        chatColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+
       try {
         const expanded = await expandSuggestion({
           sessionId,
           clickedCard: card,
         })
-        appendChatMessage({ role: 'user', text: card.text })
         appendChatMessage({
           role: 'assistant',
           text: expanded.expanded_text,
@@ -477,31 +481,16 @@ function App() {
           uncertainties: expanded.uncertainties,
           evidenceUsed: expanded.evidence_used,
         })
-        setSuggestionBatches((prev) =>
-          prev.map((batch) =>
-            batch.id !== batchId
-              ? batch
-              : {
-                  ...batch,
-                  cards: batch.cards.map((batchCard, batchCardIndex) =>
-                    batchCardIndex === index
-                      ? {
-                          ...batchCard,
-                          text: expanded.expanded_text,
-                          evidence: expanded.evidence_used,
-                          supporting_points: expanded.supporting_points,
-                          uncertainties: expanded.uncertainties,
-                        }
-                      : batchCard
-                  ),
-                }
-          )
-        )
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Expand failed'
+        const message = error instanceof Error ? error.message : 'Request failed'
         setRefreshError(message)
+        appendChatMessage({
+          role: 'assistant',
+          text: `Couldn’t load a detailed answer. (${message})`,
+        })
       } finally {
-        setExpandingKey(null)
+        suggestionDetailInFlight.current = false
+        setSuggestionDetailKey(null)
       }
     },
     [appendChatMessage, sessionId]
@@ -557,43 +546,37 @@ function App() {
   return (
     <main className="h-screen max-h-screen flex flex-col overflow-hidden max-w-full">
       <div className="flex flex-1 min-h-0 min-w-0">
-        <section className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] border-r border-white/5 flex flex-col bg-surface-container-lowest min-w-0">
-          <div className="p-4 sm:p-6 border-b border-white/5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-on-surface flex items-center gap-1">
-                <span className="material-symbols-outlined text-primary">record_voice_over</span>
-                Transcript
-              </h3>
-              <span
-                className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded transition-colors duration-300 ${
-                  recording ? 'bg-rose-500/20 text-rose-200 ring-1 ring-rose-500/40' : 'bg-white/5 text-white/40'
-                }`}
-              >
-                {recording && (
-                  <span
-                    className="h-1.5 w-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-pulse motion-reduce:animate-none"
-                    aria-hidden
-                  />
-                )}
-                {recording ? 'LIVE' : 'IDLE'}
-              </span>
-            </div>
-            <div className="mt-2 text-[10px] text-white/30 flex flex-wrap justify-between gap-1">
-              <span>API: {backendStatus === 'online' ? 'ok' : backendStatus}</span>
-              <span className="truncate" title={sessionId}>
-                {sessionId.slice(0, 18)}…
-              </span>
-            </div>
-            <p className="text-[10px] text-white/20 mt-2">WebM segments /api/v1/transcription</p>
-            <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <section className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] ui-column-rule-r flex flex-col bg-surface-container-lowest min-w-0 min-h-0">
+          <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
+            <div className="flex items-center justify-between gap-3 min-h-[3rem]">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <h3 className="text-lg font-semibold text-on-surface flex items-center gap-1 shrink-0">
+                  <span className="material-symbols-outlined text-primary text-[22px]">record_voice_over</span>
+                  Transcript
+                </h3>
+                <span
+                  className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded transition-colors duration-300 shrink-0 ${
+                    recording
+                      ? 'bg-rose-500/20 text-rose-100 ring-1 ring-rose-500/50'
+                      : 'bg-white/10 text-on-surface/80 border border-white/15'
+                  }`}
+                >
+                  {recording && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-pulse motion-reduce:animate-none"
+                      aria-hidden
+                    />
+                  )}
+                  {recording ? 'LIVE' : 'Ready'}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={handleToggleRecording}
                 aria-pressed={recording}
                 className={[
-                  'inline-flex items-center gap-2 text-button font-semibold px-4 py-2.5 rounded-xl',
-                  'min-w-[9.5rem] justify-center',
-                  'transition-all duration-300 ease-out',
+                  'inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg shrink-0',
+                  'h-10 transition-all duration-300 ease-out',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e0e0e] focus-visible:ring-primary/60',
                   recording
                     ? 'bg-rose-600 text-white border-2 border-rose-400/80 shadow-[0_0_0_1px_rgba(251,113,133,0.3),0_4px_24px_rgba(225,29,72,0.45)] hover:bg-rose-500 hover:border-rose-300'
@@ -602,7 +585,7 @@ function App() {
               >
                 <span
                   className={[
-                    'material-symbols-outlined text-[20px] transition-transform duration-300',
+                    'material-symbols-outlined text-[18px] transition-transform duration-300',
                     recording ? 'scale-110 animate-pulse motion-reduce:animate-none' : 'scale-100',
                   ].join(' ')}
                   aria-hidden
@@ -611,149 +594,186 @@ function App() {
                 </span>
                 {recording ? 'Stop' : 'Start'} mic
               </button>
-              {transcriptionError && <span className="text-[11px] text-rose-300/90">{transcriptionError}</span>}
             </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 transcript-glow min-h-0">
             {isDevMode && (
-              <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                <input
-                  className="flex-1 w-full min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                  value={manualTranscriptDraft}
-                  onChange={(e) => setManualTranscriptDraft(e.target.value)}
-                  placeholder="Dev: paste/type transcript turn + Enter"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      appendManualTranscriptTurn()
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={appendManualTranscriptTurn}
-                  className="text-sm border border-white/10 rounded-lg px-3 py-2 text-on-surface/80 hover:border-primary/40"
-                  disabled={!manualTranscriptDraft.trim()}
-                >
-                  Add
-                </button>
+              <div className="text-[10px] text-on-surface/55 space-y-1 pb-2 border-b border-white/10">
+                <div className="flex flex-wrap justify-between gap-1">
+                  <span>API: {backendStatus === 'online' ? 'ok' : backendStatus}</span>
+                  <span className="truncate font-mono max-w-[10rem]" title={sessionId}>
+                    {sessionId.slice(0, 12)}…
+                  </span>
+                </div>
+                <p className="font-mono">POST /api/v1/transcription · WebM</p>
+                <p>
+                  upload queue: {isUploadingChunk ? 'sending' : 'idle'}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <input
+                    className="flex-1 w-full min-w-0 bg-white/[0.07] border-2 border-white/20 rounded-lg px-3 py-2 text-sm text-on-surface/95 placeholder:text-on-surface/45 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30"
+                    value={manualTranscriptDraft}
+                    onChange={(e) => setManualTranscriptDraft(e.target.value)}
+                    placeholder="Dev: paste/type turn + Enter"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        appendManualTranscriptTurn()
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={appendManualTranscriptTurn}
+                    className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2 shrink-0"
+                    disabled={!manualTranscriptDraft.trim()}
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
             )}
-            <p className="text-[10px] text-white/20 mt-1">upload: {isUploadingChunk ? 'sending' : 'idle'}</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 transcript-glow">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <div
-                  className="w-8 h-8 rounded-full overflow-hidden border border-primary/20 shrink-0 active-gradient flex items-center justify-center text-button text-white"
-                  aria-hidden
-                >
-                  You
-                </div>
-                <span className="text-xs font-bold text-primary">Speaker (You)</span>
-              </div>
-            </div>
-            {mergedTurns.length === 0 && <p className="text-on-surface/40 text-sm">No transcript yet.</p>}
+            {transcriptionError && <p className="text-[11px] text-rose-300/90">{transcriptionError}</p>}
+            {mergedTurns.length === 0 && (
+              <p className="text-on-surface/70 text-sm">Start the mic to capture what you say.</p>
+            )}
             {mergedTurns.map((turn, i) => {
               const age = i < mergedTurns.length - 2
               return (
                 <div key={turn.id}>
-                  <div className="text-[9px] text-white/20 font-mono">
-                    {formatTranscriptTime(turn.start_ms)} – {formatTranscriptTime(turn.end_ms)} · {turn.id.slice(0, 8)}…
+                  <div
+                    className="text-[9px] text-on-surface/55 font-mono"
+                    title={isDevMode ? turn.id : undefined}
+                  >
+                    {formatTranscriptTime(turn.start_ms)} – {formatTranscriptTime(turn.end_ms)}
+                    {isDevMode ? ` · ${turn.id.slice(0, 8)}…` : null}
                   </div>
                   <p
-                    className={`text-body-md leading-relaxed mt-0.5 ${
-                      age ? 'text-on-surface/50' : 'text-on-surface/80'
-                    } ${i === mergedTurns.length - 1 ? 'text-on-surface/80' : ''}`}
+                    className={`text-body-md leading-relaxed ${mergedTurns.length > 0 ? 'mt-0.5' : ''} ${
+                      age ? 'text-on-surface/70' : 'text-on-surface/95'
+                    } ${i === mergedTurns.length - 1 ? 'text-on-surface/95' : ''}`}
                   >
                     &ldquo;{turn.text}&rdquo;
-                    {turn.confidence != null && turn.confidence > 0 && (
-                      <span className="ml-1 text-[10px] text-white/25">
-                        · {Math.round(turn.confidence * 100)}% conf
+                    {isDevMode && turn.confidence != null && turn.confidence > 0 && (
+                      <span className="ml-1 text-[10px] text-on-surface/50">
+                        · {Math.round(turn.confidence * 100)}%
                       </span>
                     )}
                   </p>
                 </div>
               )
             })}
-            {isUploadingChunk && (
-              <p className="text-body-md text-on-surface/40 italic">(Transcribing segment...)</p>
+            {isUploadingChunk && (recording || mergedTurns.length > 0) && (
+              <p className="text-sm text-on-surface/70 italic">Transcribing…</p>
             )}
           </div>
         </section>
 
         <section className="flex-1 flex flex-col bg-background min-w-0 min-h-0">
-          <div className="p-4 sm:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-on-surface">Live Suggestions</h3>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-white/30">
-                {latest?.signalState && (
+          <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
+            <div className="flex items-center justify-between gap-3 min-h-[3rem]">
+              <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                <h3 className="text-lg font-semibold text-on-surface shrink-0">Live Suggestions</h3>
+                {latest?.signalState === 'urgent' && (
+                  <span
+                    className="px-2 py-0.5 rounded border text-red-200 border-red-500/50 bg-red-500/15 text-[10px] font-bold uppercase tracking-wide shrink-0"
+                    title="Model thinks this is a high-stakes moment"
+                  >
+                    High stakes
+                  </span>
+                )}
+                {latest?.signalState === 'weak' && (
+                  <span
+                    className="px-2 py-0.5 rounded border text-slate-200 border-slate-500/40 bg-slate-500/15 text-[10px] font-bold uppercase tracking-wide shrink-0"
+                    title="Lighter moment in the conversation"
+                  >
+                    Soft moment
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
+                <div className="text-right" title="Round-trip time for the last suggestion refresh">
+                  <div className="text-[10px] text-on-surface/55 uppercase tracking-widest font-semibold leading-tight">
+                    Latency
+                  </div>
+                  <div className="text-sm text-primary font-bold tabular-nums leading-tight">
+                    {lastLatencyMs != null ? `${lastLatencyMs}ms` : '—'}
+                  </div>
+                </div>
+                {isDevMode && hasTranscript && (
+                  <span
+                    className="text-[10px] text-on-surface/55 max-w-[7rem] sm:max-w-none text-right"
+                    title="Suggestions refresh a few seconds after new transcript (while mic is on)"
+                  >
+                    {recording ? `${autoRefreshCountdown}s` : 'paused'}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void queueRefresh(true)}
+                  className="ui-btn text-sm rounded-lg px-3.5 py-2 h-10"
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? '…' : 'Refresh'}
+                </button>
+                {isDevMode && (
+                  <button
+                    type="button"
+                    onClick={() => void copyTrajectoryToClipboard()}
+                    className="ui-btn ui-btn-ghost text-sm rounded-lg px-3.5 py-2 h-10"
+                    title="Copy JSON"
+                  >
+                    {trajectoryCopyStatus === 'ok' ? 'Copied' : trajectoryCopyStatus === 'err' ? 'Fail' : 'Export'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-8 min-h-0">
+            {isDevMode && latest && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-on-surface/55 pb-2 border-b border-white/10">
+                {latest.signalState === 'normal' && (
                   <span
                     className={`px-2 py-0.5 rounded border ${signalPillClass(
                       latest.signalState
-                    )} uppercase font-bold tracking-widest text-label-caps`}
+                    )} font-bold uppercase tracking-wider`}
                   >
                     signal: {latest.signalState}
                   </span>
                 )}
-                {latest && <span>omitted: {labelForBucketKey(latest.omittedBucket)}</span>}
-                <span>batches: {batchCount}</span>
+                <span title="Bucket not in this round of three">
+                  not shown: {labelForBucketKey(latest.omittedBucket)}
+                </span>
+                <span>updates: {batchCount}</span>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div className="text-right">
-                <div className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Latency</div>
-                <div className="text-sm text-primary font-bold">
-                  {lastLatencyMs != null ? `${lastLatencyMs}ms` : '—'}
-                </div>
-              </div>
-              <span className="text-[10px] text-white/20">
-                {!hasTranscript
-                  ? 'need transcript'
-                  : recording
-                    ? `next auto refresh in ${autoRefreshCountdown}s`
-                    : 'mic off (auto paused)'}
-              </span>
-              <button
-                type="button"
-                onClick={() => void queueRefresh(true)}
-                className="text-sm border border-white/10 rounded-lg px-3 py-1.5 text-on-surface/90 hover:border-primary/40"
-                disabled={isRefreshing}
-              >
-                {isRefreshing ? '…' : 'Reload'}
-              </button>
-              {isDevMode && (
-                <button
-                  type="button"
-                  onClick={() => void copyTrajectoryToClipboard()}
-                  className="text-sm border border-white/10 rounded-lg px-3 py-1.5 text-on-surface/90 hover:border-primary/40"
-                  title="Copy JSON"
-                >
-                  {trajectoryCopyStatus === 'ok' ? 'Copied' : trajectoryCopyStatus === 'err' ? 'Fail' : 'Copy JSON'}
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 min-h-0">
+            )}
             {refreshError && <p className="text-rose-300/90 text-sm">{refreshError}</p>}
 
             {suggestionBatches.length === 0 && (
-              <p className="text-on-surface/40">Reload (or add transcript) for three cards + scores in the right panel.</p>
+              <p className="text-on-surface/70">
+                {hasTranscript
+                  ? 'Loading suggestions, or press Refresh if nothing appears.'
+                  : 'Turn the mic on and speak—suggestions will show here.'}
+              </p>
             )}
 
             {latest && (
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-label-caps text-primary uppercase font-bold tracking-widest">Latest batch</span>
-                  <span className="text-[10px] text-white/20">{relTime(latest.createdAt)}</span>
+                  <span className="text-label-caps text-primary uppercase font-bold tracking-widest">Latest</span>
+                  <span className="text-[10px] text-on-surface/55" title="When this set was created">
+                    {relTime(latest.createdAt)}
+                  </span>
                 </div>
                 <SuggestionGrid
                   cards={latest.cards}
                   batchId={latest.id}
                   opacity={1}
-                  expandingKey={expandingKey}
-                  onExpand={handleExpand}
+                  detailLoadingKey={suggestionDetailKey}
+                  onOpenInChat={handleOpenSuggestionInChat}
                 />
-                {latest.timings && (
-                  <div className="mt-3 text-[10px] text-white/20 flex flex-wrap gap-x-4 gap-y-0.5 font-mono">
+                {isDevMode && latest.timings && (
+                  <div className="mt-3 text-[10px] text-on-surface/55 flex flex-wrap gap-x-3 gap-y-0.5 font-mono">
                     <span>state {latest.timings.state_ms}ms</span>
                     <span>llm {latest.timings.llm_main_ms}ms</span>
                     <span>retr {latest.timings.retrieval_ms}ms</span>
@@ -766,29 +786,39 @@ function App() {
 
             {suggestionBatches.length > 1 && (
               <div>
-                <span className="text-label-caps text-white/40 uppercase font-bold tracking-widest block mb-4">
-                  Past suggestions
+                <span className="text-label-caps text-on-surface/75 uppercase font-bold tracking-widest block mb-4">
+                  Earlier
                 </span>
                 <div className="space-y-8">
                   {suggestionBatches.slice(1).map((batch, bi) => (
                     <div key={batch.id} className="relative pl-1">
-                      <div className="absolute -left-1 top-0 bottom-0 w-px bg-white/5" aria-hidden />
+                      <div
+                        className="absolute -left-1 top-0 bottom-0 w-[2px] rounded-full bg-primary/40"
+                        aria-hidden
+                      />
                       <div className="flex items-center space-x-2 mb-3">
                         <div
-                          className="w-2 h-2 rounded-full bg-white/10 -ml-[0.3rem] shrink-0"
+                          className="w-2.5 h-2.5 rounded-full bg-primary/60 ring-1 ring-primary/30 -ml-[0.3rem] shrink-0"
                           aria-hidden
                         />
-                        <span className="text-[10px] text-white/20 font-bold uppercase tracking-tight">
-                          Batch · {relTime(batch.createdAt)}
+                        <span className="text-[10px] text-on-surface/70 font-bold uppercase tracking-tight">
+                          {relTime(batch.createdAt)}
                         </span>
-                        <span className="text-[10px] text-white/20">omitted {labelForBucketKey(batch.omittedBucket)}</span>
+                        {isDevMode && (
+                          <span
+                            className="text-[10px] text-on-surface/50"
+                            title="Bucket not shown in this round"
+                          >
+                            not shown: {labelForBucketKey(batch.omittedBucket)}
+                          </span>
+                        )}
                       </div>
                       <SuggestionGrid
                         cards={batch.cards}
                         batchId={batch.id}
                         opacity={0.4 + 0.25 / (bi + 1)}
-                        expandingKey={expandingKey}
-                        onExpand={handleExpand}
+                        detailLoadingKey={suggestionDetailKey}
+                        onOpenInChat={handleOpenSuggestionInChat}
                       />
                     </div>
                   ))}
@@ -798,24 +828,34 @@ function App() {
           </div>
         </section>
 
-        <section className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] border-l border-white/5 flex flex-col bg-surface-container-lowest min-w-0 min-h-0">
-          <div className="p-4 sm:p-6 border-b border-white/5">
-            <h3 className="text-lg font-semibold text-on-surface flex items-center gap-1">
-              <span className="material-symbols-outlined text-primary">smart_toy</span>
-              Chat
-            </h3>
-            <p className="text-[10px] text-white/30 mt-1">
-              Click a suggestion or type a question. One continuous chat per session.
-            </p>
+        <section
+          ref={chatColumnRef}
+          className="w-full md:w-1/4 md:max-w-[min(28vw,24rem)] ui-column-rule-l flex flex-col bg-surface-container-lowest min-w-0 min-h-0"
+        >
+          <div className="px-4 sm:px-6 py-3 ui-section-header shrink-0">
+            <div className="flex items-center justify-between gap-3 min-h-[3rem]">
+              <h3 className="text-lg font-semibold text-on-surface flex items-center gap-1 min-w-0">
+                <span className="material-symbols-outlined text-primary text-[22px] shrink-0">smart_toy</span>
+                Chat
+              </h3>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-h-0">
-            {latest && (
+          <div
+            ref={chatThreadRef}
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 min-h-0"
+          >
+            <p className="text-[10px] text-on-surface/60 leading-snug">
+              Tap a suggestion card for a detailed answer, or type at the bottom.
+            </p>
+            {isDevMode && latest && (
               <div className="space-y-2">
-                <span className="text-[10px] font-bold text-primary uppercase">TwinMind AI</span>
-                <div className="glass-card p-4 rounded-xl rounded-tl-none text-sm text-on-surface/80">
-                  <p>Latest batch: omitted bucket {labelForBucketKey(latest.omittedBucket)}.</p>
+                <span className="text-[10px] font-bold text-primary uppercase">Debug · last batch</span>
+                <div className="glass-card p-4 rounded-xl rounded-tl-none text-sm text-on-surface/90">
+                  <p className="text-on-surface/80">
+                    Not in top 3: <span className="font-medium">{labelForBucketKey(latest.omittedBucket)}</span>
+                  </p>
                   {latest.scores && (
-                    <ul className="mt-2 text-[12px] text-on-surface/50 space-y-0.5 font-mono">
+                    <ul className="mt-2 text-[12px] text-on-surface/65 space-y-0.5 font-mono">
                       {Object.entries(latest.scores).map(([b, s]) => (
                         <li key={b}>
                           {labelForBucketKey(b)}: {typeof s === 'number' ? s.toFixed(3) : s}
@@ -824,8 +864,8 @@ function App() {
                     </ul>
                   )}
                   {latest.metadata && Object.keys(latest.metadata).length > 0 && (
-                    <p className="mt-2 text-[10px] text-white/20">
-                      meta: {JSON.stringify(latest.metadata)}
+                    <p className="mt-2 text-[10px] text-on-surface/50 break-all font-mono">
+                      {JSON.stringify(latest.metadata)}
                     </p>
                   )}
                 </div>
@@ -834,44 +874,44 @@ function App() {
 
             {chatMessages.map((msg) => (
               <div key={msg.id} className="space-y-1">
-                <div className="text-[10px] font-bold text-white/50 uppercase">
+                <div className="text-[10px] font-bold text-on-surface/80 uppercase">
                   {msg.role === 'assistant' ? 'Assistant' : 'You'}
                 </div>
                 <div
                   className={`glass-card p-3 rounded-lg text-sm ${
-                    msg.role === 'assistant' ? 'text-on-surface/85' : 'text-primary/90 border-primary/20'
+                    msg.role === 'assistant' ? 'text-on-surface/90' : 'text-primary/95 border-2 border-primary/35'
                   }`}
                 >
-                  <p>{msg.text}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                   {msg.supportingPoints && msg.supportingPoints.length > 0 && (
-                    <ul className="text-[10px] text-on-surface/40 list-disc pl-3 mt-2 space-y-0.5">
+                    <ul className="text-[10px] text-on-surface/70 list-disc pl-3 mt-2 space-y-0.5">
                       {msg.supportingPoints.slice(0, 3).map((line) => (
                         <li key={line.slice(0, 32)}>{line}</li>
                       ))}
                     </ul>
                   )}
                   {msg.uncertainties && msg.uncertainties.length > 0 && (
-                    <ul className="text-[10px] text-amber-200/50 list-disc pl-3 mt-1 space-y-0.5">
+                    <ul className="text-[10px] text-amber-200/80 list-disc pl-3 mt-1 space-y-0.5">
                       {msg.uncertainties.slice(0, 2).map((line) => (
                         <li key={line.slice(0, 32)}>{line}</li>
                       ))}
                     </ul>
                   )}
                   {msg.evidenceUsed && msg.evidenceUsed.length > 0 && (
-                    <p className="text-[10px] text-white/25 mt-2 line-clamp-2">{msg.evidenceUsed[0]}</p>
+                    <p className="text-[10px] text-on-surface/60 mt-2 break-words whitespace-pre-wrap">
+                      {msg.evidenceUsed[0]}
+                    </p>
                   )}
                 </div>
               </div>
             ))}
 
-            {chatMessages.length === 0 && !latest && (
-              <p className="text-sm text-on-surface/30">No chat yet. Click a suggestion or ask directly.</p>
-            )}
+            {chatMessages.length === 0 && <p className="text-sm text-on-surface/65">No messages yet.</p>}
           </div>
-          <div className="p-4 sm:p-6 border-t border-white/5 shrink-0">
+          <div className="px-4 sm:px-6 py-4 border-t border-white/20 shrink-0 bg-black/20">
             <div className="relative flex gap-2">
               <input
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+                className="w-full bg-white/[0.08] border-2 border-white/20 rounded-xl px-4 py-3 text-sm text-on-surface/95 placeholder:text-on-surface/50 focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-all"
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
                 onKeyDown={(e) => {
@@ -880,12 +920,12 @@ function App() {
                     void handleSendChat()
                   }
                 }}
-                placeholder="Ask a question..."
+                placeholder="Type a follow-up…"
                 type="text"
               />
               <button
                 type="button"
-                className="text-sm border border-white/10 rounded-xl px-3 py-2 text-on-surface/90 hover:border-primary/40 disabled:opacity-50"
+                className="ui-btn text-sm rounded-xl px-4 py-2.5 shrink-0"
                 onClick={() => void handleSendChat()}
                 disabled={!chatDraft.trim() || isSendingChat}
               >
@@ -893,8 +933,8 @@ function App() {
               </button>
             </div>
             {isDevMode && (
-              <p className="text-[9px] text-white/20 mt-2">
-                Clicked suggestion uses /suggestions/expand. Typed chat uses /chat/message.
+              <p className="text-[9px] text-on-surface/55 mt-2">
+                Suggestion: POST /suggestions/expand. Typed line: POST /chat/message.
               </p>
             )}
           </div>

@@ -72,10 +72,6 @@ def finalize_node(state: WorkflowState) -> WorkflowState:
         if verify_output.verdict == "uncertain" and _is_generic_uncertain_text(verify_output.revised_card_text):
             _demote_fact_check_from_top_three(state)
 
-    if rank_output.signal_state.value == "weak":
-        for idx, card in enumerate(rank_output.cards):
-            rank_output.cards[idx].text = f"Consider: {card.text}"
-
     elapsed = int((time.perf_counter() - started) * 1000)
     timings = state.get("timings", {})
     timings["finalize_ms"] = elapsed
